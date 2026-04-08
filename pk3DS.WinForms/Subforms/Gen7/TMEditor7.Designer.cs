@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class TMEditor7
 {
@@ -31,6 +31,9 @@ partial class TMEditor7
         this.dgvTM = new System.Windows.Forms.DataGridView();
         this.L_TM = new System.Windows.Forms.Label();
         this.B_RTM = new System.Windows.Forms.Button();
+        this.B_ExportTxt = new System.Windows.Forms.Button();
+        this.B_ImportTxt = new System.Windows.Forms.Button();
+        this.B_UpdateDesc = new System.Windows.Forms.Button();
         ((System.ComponentModel.ISupportInitialize)(this.dgvTM)).BeginInit();
         this.SuspendLayout();
         // 
@@ -68,17 +71,50 @@ partial class TMEditor7
         this.B_RTM.UseVisualStyleBackColor = true;
         this.B_RTM.Click += new System.EventHandler(this.B_RandomTM_Click);
         // 
+        // B_ExportTxt
+        // 
+        this.B_ExportTxt.Location = new System.Drawing.Point(120, 1);
+        this.B_ExportTxt.Name = "B_ExportTxt";
+        this.B_ExportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ExportTxt.TabIndex = 6;
+        this.B_ExportTxt.Text = "Export .txt";
+        this.B_ExportTxt.UseVisualStyleBackColor = true;
+        this.B_ExportTxt.Click += new System.EventHandler(this.B_ExportTxt_Click);
+        // 
+        // B_ImportTxt
+        // 
+        this.B_ImportTxt.Location = new System.Drawing.Point(199, 1);
+        this.B_ImportTxt.Name = "B_ImportTxt";
+        this.B_ImportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ImportTxt.TabIndex = 7;
+        this.B_ImportTxt.Text = "Import .txt";
+        this.B_ImportTxt.UseVisualStyleBackColor = true;
+        this.B_ImportTxt.Click += new System.EventHandler(this.B_ImportTxt_Click);
+        // 
+        // B_UpdateDesc
+        // 
+        this.B_UpdateDesc.Location = new System.Drawing.Point(278, 1);
+        this.B_UpdateDesc.Name = "B_UpdateDesc";
+        this.B_UpdateDesc.Size = new System.Drawing.Size(90, 23);
+        this.B_UpdateDesc.TabIndex = 8;
+        this.B_UpdateDesc.Text = "Update Desc";
+        this.B_UpdateDesc.UseVisualStyleBackColor = true;
+        this.B_UpdateDesc.Click += new System.EventHandler(this.B_UpdateDesc_Click);
+        // 
         // TMEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(259, 331);
+        this.ClientSize = new System.Drawing.Size(380, 331);
+        this.Controls.Add(this.B_UpdateDesc);
+        this.Controls.Add(this.B_ImportTxt);
+        this.Controls.Add(this.B_ExportTxt);
         this.Controls.Add(this.B_RTM);
         this.Controls.Add(this.L_TM);
         this.Controls.Add(this.dgvTM);
         this.MaximizeBox = false;
         this.MaximumSize = new System.Drawing.Size(520, 670);
-        this.MinimumSize = new System.Drawing.Size(275, 370);
+        this.MinimumSize = new System.Drawing.Size(396, 370);
         this.Name = "TMEditor7";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
         this.Text = "TM Editor";
@@ -94,4 +130,7 @@ partial class TMEditor7
     private System.Windows.Forms.DataGridView dgvTM;
     private System.Windows.Forms.Label L_TM;
     private System.Windows.Forms.Button B_RTM;
+    private System.Windows.Forms.Button B_ExportTxt;
+    private System.Windows.Forms.Button B_ImportTxt;
+    private System.Windows.Forms.Button B_UpdateDesc;
 }

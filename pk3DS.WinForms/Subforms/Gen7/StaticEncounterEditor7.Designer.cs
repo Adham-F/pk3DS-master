@@ -570,7 +570,7 @@ partial class StaticEncounterEditor7
         // 
         // L_EMap
         // 
-        this.L_EMap.Location = new System.Drawing.Point(380, 20);
+        this.L_EMap.Location = new System.Drawing.Point(350, 20);
         this.L_EMap.Name = "L_EMap";
         this.L_EMap.Size = new System.Drawing.Size(60, 20);
         this.L_EMap.TabIndex = 600;

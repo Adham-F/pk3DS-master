@@ -1,4 +1,4 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -283,5 +283,130 @@ public partial class MartEditor7 : Form
             }
         }
         WinFormsUtil.Alert("Randomized!");
+    }
+
+    private void B_ExportTxt_Click(object sender, EventArgs e)
+    {
+        if (entry > -1) SetList();
+        if (entryBP > -1) SetListBP();
+
+        var sfd = new SaveFileDialog { FileName = "Marts.txt", Filter = "Text File|*.txt" };
+        if (sfd.ShowDialog() != DialogResult.OK) return;
+
+        var lines = new List<string>();
+        // Regular marts
+        for (int loc = 0; loc < locations.Length; loc++)
+        {
+            lines.Add($"=== {locations[loc]} ===");
+            int count = entries[loc];
+            int ofs = offset;
+            for (int j = 0; j < loc; j++) ofs += 2 * entries[j];
+            for (int i = 0; i < count; i++)
+            {
+                int itemId = BitConverter.ToUInt16(data, ofs + (2 * i));
+                lines.Add($"{i}: {itemlist[itemId]}");
+            }
+            lines.Add("");
+        }
+        // BP marts
+        for (int loc = 0; loc < locationsBP.Length; loc++)
+        {
+            lines.Add($"=== BP: {locationsBP[loc]} ===");
+            int count = entriesBP[loc];
+            int ofs = offsetBP;
+            for (int j = 0; j < loc; j++) ofs += 4 * entriesBP[j];
+            for (int i = 0; i < count; i++)
+            {
+                int itemId = BitConverter.ToUInt16(data, ofs + (4 * i));
+                int price = BitConverter.ToUInt16(data, ofs + (4 * i) + 2);
+                lines.Add($"{i}: {itemlist[itemId]} | {price}");
+            }
+            lines.Add("");
+        }
+        File.WriteAllLines(sfd.FileName, lines);
+        WinFormsUtil.Alert("Mart data exported!");
+    }
+
+    private void B_ImportTxt_Click(object sender, EventArgs e)
+    {
+        var ofd = new OpenFileDialog { Filter = "Text File|*.txt" };
+        if (ofd.ShowDialog() != DialogResult.OK) return;
+
+        string[] lines = File.ReadAllLines(ofd.FileName);
+        int currentLoc = -1;
+        bool isBP = false;
+        int currentOfs = 0;
+        int currentCount = 0;
+        int updated = 0;
+
+        foreach (string line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+
+            if (line.StartsWith("==="))
+            {
+                // Find which location this is
+                string locName = line.Trim('=', ' ');
+                isBP = locName.StartsWith("BP:");
+                if (isBP) locName = locName.Substring(3).Trim();
+
+                currentLoc = -1;
+                if (isBP)
+                {
+                    for (int i = 0; i < locationsBP.Length; i++)
+                        if (locationsBP[i] == locName) { currentLoc = i; break; }
+                    if (currentLoc >= 0)
+                    {
+                        currentOfs = offsetBP;
+                        for (int j = 0; j < currentLoc; j++) currentOfs += 4 * entriesBP[j];
+                        currentCount = entriesBP[currentLoc];
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < locations.Length; i++)
+                        if (locations[i] == locName) { currentLoc = i; break; }
+                    if (currentLoc >= 0)
+                    {
+                        currentOfs = offset;
+                        for (int j = 0; j < currentLoc; j++) currentOfs += 2 * entries[j];
+                        currentCount = entries[currentLoc];
+                    }
+                }
+                continue;
+            }
+
+            if (currentLoc < 0) continue;
+
+            int colonIdx = line.IndexOf(':');
+            if (colonIdx < 0) continue;
+            if (!int.TryParse(line.Substring(0, colonIdx).Trim(), out int idx)) continue;
+            if (idx < 0 || idx >= currentCount) continue;
+
+            string rest = line.Substring(colonIdx + 1).Trim();
+
+            if (isBP)
+            {
+                string[] parts = rest.Split('|');
+                string itemName = parts[0].Trim();
+                int itemIdx = Array.IndexOf(itemlist, itemName);
+                if (itemIdx < 0) continue;
+                Array.Copy(BitConverter.GetBytes((ushort)itemIdx), 0, data, currentOfs + (4 * idx), 2);
+                if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int price))
+                    Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, currentOfs + (4 * idx) + 2, 2);
+            }
+            else
+            {
+                int itemIdx = Array.IndexOf(itemlist, rest);
+                if (itemIdx < 0) continue;
+                Array.Copy(BitConverter.GetBytes((ushort)itemIdx), 0, data, currentOfs + (2 * idx), 2);
+            }
+            updated++;
+        }
+
+        // Refresh current views
+        if (entry > -1) GetList();
+        if (entryBP > -1) GetListBP();
+        WinFormsUtil.Alert($"Imported {updated} mart entries!");
     }
 }

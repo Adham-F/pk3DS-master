@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class TutorEditor7
 {
@@ -40,6 +40,8 @@ partial class TutorEditor7
         this.dgvmvMove = new System.Windows.Forms.DataGridViewComboBoxColumn();
         this.dgvmvIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
         this.tabControl1 = new System.Windows.Forms.TabControl();
+        this.B_ExportTxt = new System.Windows.Forms.Button();
+        this.B_ImportTxt = new System.Windows.Forms.Button();
         this.tabPage3.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.dgvmv)).BeginInit();
         this.tabControl1.SuspendLayout();
@@ -167,12 +169,36 @@ partial class TutorEditor7
         this.tabControl1.Size = new System.Drawing.Size(325, 472);
         this.tabControl1.TabIndex = 15;
         // 
+        // B_ExportTxt
+        // 
+        this.B_ExportTxt.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.B_ExportTxt.Location = new System.Drawing.Point(105, 493);
+        this.B_ExportTxt.Name = "B_ExportTxt";
+        this.B_ExportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ExportTxt.TabIndex = 16;
+        this.B_ExportTxt.Text = "Export .txt";
+        this.B_ExportTxt.UseVisualStyleBackColor = true;
+        this.B_ExportTxt.Click += new System.EventHandler(this.B_ExportTxt_Click);
+        // 
+        // B_ImportTxt
+        // 
+        this.B_ImportTxt.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.B_ImportTxt.Location = new System.Drawing.Point(105, 493);
+        this.B_ImportTxt.Name = "B_ImportTxt";
+        this.B_ImportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ImportTxt.TabIndex = 17;
+        this.B_ImportTxt.Text = "Import .txt";
+        this.B_ImportTxt.UseVisualStyleBackColor = true;
+        this.B_ImportTxt.Click += new System.EventHandler(this.B_ImportTxt_Click);
+        // 
         // TutorEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.ClientSize = new System.Drawing.Size(344, 528);
         this.Controls.Add(this.tabControl1);
+        this.Controls.Add(this.B_ImportTxt);
+        this.Controls.Add(this.B_ExportTxt);
         this.Controls.Add(this.B_Cancel);
         this.Controls.Add(this.B_Save);
         this.Controls.Add(this.B_Randomize);
@@ -201,4 +227,6 @@ partial class TutorEditor7
     private System.Windows.Forms.Label label2;
     private System.Windows.Forms.ComboBox CB_LocationBPMove;
     private System.Windows.Forms.TabControl tabControl1;
+    private System.Windows.Forms.Button B_ExportTxt;
+    private System.Windows.Forms.Button B_ImportTxt;
 }

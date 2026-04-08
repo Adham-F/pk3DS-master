@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class MartEditor7
 {
@@ -46,6 +46,8 @@ partial class MartEditor7
         this.dgvItemBP = new System.Windows.Forms.DataGridViewComboBoxColumn();
         this.dgvPriceBP = new System.Windows.Forms.DataGridViewTextBoxColumn();
         this.CHK_XItems = new System.Windows.Forms.CheckBox();
+        this.B_ExportTxt = new System.Windows.Forms.Button();
+        this.B_ImportTxt = new System.Windows.Forms.Button();
         ((System.ComponentModel.ISupportInitialize)(this.dgv)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.dgvbp)).BeginInit();
         this.SuspendLayout();
@@ -211,11 +213,33 @@ partial class MartEditor7
         this.CHK_XItems.Text = "Don\'t Randomize X Items (Speedrun)";
         this.CHK_XItems.UseVisualStyleBackColor = true;
         // 
+        // B_ExportTxt
+        // 
+        this.B_ExportTxt.Location = new System.Drawing.Point(12, 355);
+        this.B_ExportTxt.Name = "B_ExportTxt";
+        this.B_ExportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ExportTxt.TabIndex = 305;
+        this.B_ExportTxt.Text = "Export .txt";
+        this.B_ExportTxt.UseVisualStyleBackColor = true;
+        this.B_ExportTxt.Click += new System.EventHandler(this.B_ExportTxt_Click);
+        // 
+        // B_ImportTxt
+        // 
+        this.B_ImportTxt.Location = new System.Drawing.Point(93, 355);
+        this.B_ImportTxt.Name = "B_ImportTxt";
+        this.B_ImportTxt.Size = new System.Drawing.Size(75, 23);
+        this.B_ImportTxt.TabIndex = 306;
+        this.B_ImportTxt.Text = "Import .txt";
+        this.B_ImportTxt.UseVisualStyleBackColor = true;
+        this.B_ImportTxt.Click += new System.EventHandler(this.B_ImportTxt_Click);
+        // 
         // MartEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(639, 361);
+        this.ClientSize = new System.Drawing.Size(639, 390);
+        this.Controls.Add(this.B_ImportTxt);
+        this.Controls.Add(this.B_ExportTxt);
         this.Controls.Add(this.CHK_XItems);
         this.Controls.Add(this.dgvbp);
         this.Controls.Add(this.B_RandomizeBP);
@@ -257,4 +281,6 @@ partial class MartEditor7
     private System.Windows.Forms.DataGridViewComboBoxColumn dgvItemBP;
     private System.Windows.Forms.DataGridViewTextBoxColumn dgvPriceBP;
     private System.Windows.Forms.CheckBox CHK_XItems;
+    private System.Windows.Forms.Button B_ExportTxt;
+    private System.Windows.Forms.Button B_ImportTxt;
 }

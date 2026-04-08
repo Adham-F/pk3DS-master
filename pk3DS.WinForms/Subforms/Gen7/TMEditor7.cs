@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
@@ -151,5 +151,79 @@ public partial class TMEditor7 : Form
         for (int i = 0; i < 100; i++) // TMs stored sequentially
             tms.Add(BitConverter.ToUInt16(data, dataoffset + (2 * i)));
         return [.. tms];
+    }
+
+    private void B_ExportTxt_Click(object sender, EventArgs e)
+    {
+        var sfd = new SaveFileDialog { FileName = "TMs.txt", Filter = "Text File|*.txt" };
+        if (sfd.ShowDialog() != DialogResult.OK) return;
+
+        var lines = new List<string>();
+        for (int i = 0; i < dgvTM.Rows.Count; i++)
+        {
+            string moveName = dgvTM.Rows[i].Cells[1].Value?.ToString() ?? "";
+            lines.Add($"TM{i + 1:00}: {moveName}");
+        }
+        File.WriteAllLines(sfd.FileName, lines);
+        WinFormsUtil.Alert("TM data exported!");
+    }
+
+    private void B_ImportTxt_Click(object sender, EventArgs e)
+    {
+        var ofd = new OpenFileDialog { Filter = "Text File|*.txt" };
+        if (ofd.ShowDialog() != DialogResult.OK) return;
+
+        string[] lines = File.ReadAllLines(ofd.FileName);
+        int updated = 0;
+        foreach (string line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith("//")) continue;
+
+            // Parse lines like "TM01: Work Up" or "TM01: 526"
+            int colonIdx = line.IndexOf(':');
+            if (colonIdx < 0) continue;
+
+            string tmPart = line.Substring(0, colonIdx).Trim();
+            string movePart = line.Substring(colonIdx + 1).Trim();
+
+            // Extract TM number
+            if (!tmPart.StartsWith("TM", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!int.TryParse(tmPart.Substring(2), out int tmNum)) continue;
+            int rowIdx = tmNum - 1;
+            if (rowIdx < 0 || rowIdx >= dgvTM.Rows.Count) continue;
+
+            // Try to match move by name first, then by index
+            int moveIdx = Array.IndexOf(movelist, movePart);
+            if (moveIdx < 0 && int.TryParse(movePart, out int moveId) && moveId >= 0 && moveId < movelist.Length)
+                moveIdx = moveId;
+            if (moveIdx < 0) continue;
+
+            dgvTM.Rows[rowIdx].Cells[1].Value = movelist[moveIdx];
+            updated++;
+        }
+        WinFormsUtil.Alert($"Imported {updated} TM entries!");
+    }
+
+    private void B_UpdateDesc_Click(object sender, EventArgs e)
+    {
+        // Build current TM list from the grid
+        List<ushort> currentTMs = [];
+        for (int i = 0; i < dgvTM.Rows.Count; i++)
+            currentTMs.Add((ushort)Array.IndexOf(movelist, dgvTM.Rows[i].Cells[1].Value));
+
+        ushort[] tmlist = [.. currentTMs];
+
+        // Sync move descriptions into item descriptions (same logic as SetList)
+        string[] itemDescriptions = Main.Config.GetText(TextName.ItemFlavor);
+        string[] moveDescriptions = Main.Config.GetText(TextName.MoveFlavor);
+        for (int i = 1 - 1; i <= 92 - 1; i++) // TM01 - TM92
+            itemDescriptions[328 + i] = moveDescriptions[tmlist[i]];
+        for (int i = 93 - 1; i <= 95 - 1; i++) // TM93 - TM95
+            itemDescriptions[618 + i - 92] = moveDescriptions[tmlist[i]];
+        for (int i = 96 - 1; i <= 100 - 1; i++) // TM96 - TM100
+            itemDescriptions[690 + i - 95] = moveDescriptions[tmlist[i]];
+        Main.Config.SetText(TextName.ItemFlavor, itemDescriptions);
+
+        WinFormsUtil.Alert("TM item descriptions updated to match current moves!");
     }
 }
