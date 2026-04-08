@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -21,6 +21,7 @@ public partial class StaticEncounterEditor7 : Form
     private readonly string[] specieslist = Main.Config.GetText(TextName.SpeciesNames);
     private readonly string[] natures = Main.Config.GetText(TextName.Natures);
     private readonly string[] types = Main.Config.GetText(TextName.Types);
+    private readonly string[] locations = Main.Config.GetText(TextName.metlist_000000);
     private readonly int[] oldStarters;
     private static int[] FinalEvo = Legal.FinalEvolutions_7;
     private static readonly int[] Legendary = Main.Config.USUM ? Legal.Legendary_USUM : Legal.Legendary_SM;
@@ -153,6 +154,8 @@ public partial class StaticEncounterEditor7 : Form
         CB_TNature.Items.AddRange(natures.Take(25).ToArray());
 
         NUD_Ally1.Maximum = NUD_Ally2.Maximum = Main.Config.USUM ? 251 : 136;
+
+        CB_EMap.Items.AddRange(locations);
 
         GetListBoxEntries();
         LB_Gift.SelectedIndex = 0;
@@ -340,6 +343,10 @@ public partial class StaticEncounterEditor7 : Form
         CHK_EIV3.Checked = entry.IV3;
         CB_ENature.SelectedIndex = entry.Nature;
         CB_Aura.SelectedIndex = entry.Aura;
+        if (entry.Map >= 0 && entry.Map < CB_EMap.Items.Count)
+            CB_EMap.SelectedIndex = entry.Map;
+        else
+            CB_EMap.SelectedIndex = -1;
         NUD_Ally1.Value = entry.Ally1 - 1;
         NUD_Ally2.Value = entry.Ally2 - 1;
 
@@ -360,6 +367,7 @@ public partial class StaticEncounterEditor7 : Form
         entry.Form = (int)NUD_EForm.Value;
         entry.Gender = CB_EGender.SelectedIndex;
         entry.Ability = CB_EAbility.SelectedIndex;
+        entry.Map = Math.Max(-1, CB_EMap.SelectedIndex);
         entry.RelearnMoves =
         [
             CB_EMove0.SelectedIndex,
