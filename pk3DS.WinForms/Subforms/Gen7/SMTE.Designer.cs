@@ -2263,22 +2263,6 @@ this.TB_TrainerName.Location = new System.Drawing.Point(370, 400);
         this.B_MasterAll.UseVisualStyleBackColor = true;
         this.B_MasterAll.Click += new System.EventHandler(this.B_MasterAll_Click);
         
-        // B_EnableMega
-        this.B_EnableMega.Location = new System.Drawing.Point(10, 205);
-        this.B_EnableMega.Name = "B_EnableMega";
-        this.B_EnableMega.Size = new System.Drawing.Size(100, 23);
-        this.B_EnableMega.Text = "Enable Mega";
-        this.B_EnableMega.UseVisualStyleBackColor = true;
-        this.B_EnableMega.Click += new System.EventHandler(this.B_EnableMega_Click);
-        
-        // B_EnableZMove
-        this.B_EnableZMove.Location = new System.Drawing.Point(120, 205);
-        this.B_EnableZMove.Name = "B_EnableZMove";
-        this.B_EnableZMove.Size = new System.Drawing.Size(100, 23);
-        this.B_EnableZMove.Text = "Enable Z-Move";
-        this.B_EnableZMove.UseVisualStyleBackColor = true;
-        this.B_EnableZMove.Click += new System.EventHandler(this.B_EnableZMove_Click);
-        
         // TB_HPEV_Slider
         this.TB_HPEV_Slider.Location = new System.Drawing.Point(170, 0);
         this.TB_HPEV_Slider.Name = "TB_HPEV_Slider";

@@ -29,7 +29,6 @@ public partial class SMTE : Form
     private PictureBox[] pba;
     private CheckBox[] AIBits;
 
-    //private readonly byte[][] trclass;
     private readonly byte[][] trdata;
     private readonly byte[][] trpoke;
     private readonly string[] abilitylist = Main.Config.GetText(TextName.AbilityNames);
@@ -41,16 +40,16 @@ public partial class SMTE : Form
     private readonly string[] forms = Enumerable.Range(0, 1000).Select(i => i.ToString("000")).ToArray();
     private readonly string[] trName = Main.Config.GetText(TextName.TrainerNames);
     private readonly string[] trClass = Main.Config.GetText(TextName.TrainerClasses);
-    //private readonly TextData trText = Main.Config.GetTextData(TextName.TrainerText);
     private readonly TextData TrainerNames;
 
     public SMTE(byte[][] trd, byte[][] trp)
     {
-        //trclass = trc;
         trdata = trd;
         trpoke = trp;
         TrainerNames = new TextData(trName);
         InitializeComponent();
+
+        ApplyUITweaks(); // Dynamically fixes the UI and adds Showdown buttons
 
         Trainers = new TrainerData7[trdata.Length];
         Setup();
@@ -69,6 +68,90 @@ public partial class SMTE : Form
         }
 
         RandSettings.GetFormSettings(this, Tab_Rand.Controls);
+    }
+
+    private void ApplyUITweaks()
+    {
+        // 1. Widen the form and tab control
+        this.Width += 250;
+        if (TC_trdata != null) TC_trdata.Width += 220;
+
+        // Shift master buttons on the right edge
+        if (B_Randomize != null) B_Randomize.Left += 220;
+        if (B_Dump != null) B_Dump.Left += 220;
+
+        // 2. Properly space the top 6 team squares
+        if (PB_Team1 != null)
+        {
+            int startX = PB_Team1.Left;
+            int sqWidth = PB_Team1.Width;
+            int spacing = sqWidth + 12; // 12px clean gap between sprites
+
+            PictureBox[] teamBoxes = { PB_Team1, PB_Team2, PB_Team3, PB_Team4, PB_Team5, PB_Team6 };
+            for (int i = 0; i < teamBoxes.Length; i++)
+            {
+                if (teamBoxes[i] != null) teamBoxes[i].Left = startX + (i * spacing);
+            }
+
+            // 3. Add Showdown buttons safely to the SAME PARENT as the Team Squares
+            // This guarantees they are visible and share the same coordinate system
+            Control teamParent = PB_Team6.Parent ?? this;
+            int buttonsX = PB_Team6.Right + 25; // 25 pixels to the right of the last slot
+            int buttonsY = PB_Team1.Top;
+
+            Button B_ImportSet = new Button { Text = "Import Set", Size = new Size(85, 25), Location = new Point(buttonsX, buttonsY) };
+            B_ImportSet.Click += B_ImportSet_Click;
+
+            Button B_ExportSet = new Button { Text = "Export Set", Size = new Size(85, 25), Location = new Point(buttonsX + 90, buttonsY) };
+            B_ExportSet.Click += B_ExportSet_Click;
+
+            Button B_ImportTeam = new Button { Text = "Import Team", Size = new Size(85, 25), Location = new Point(buttonsX, buttonsY + 30) };
+            B_ImportTeam.Click += B_ImportTeam_Click;
+
+            // Add directly to the container holding the sprites
+            teamParent.Controls.Add(B_ImportSet);
+            teamParent.Controls.Add(B_ExportSet);
+            teamParent.Controls.Add(B_ImportTeam);
+            
+            B_ImportSet.BringToFront();
+            B_ExportSet.BringToFront();
+            B_ImportTeam.BringToFront();
+        }
+
+        // 4. Shift AI Bits and Battle Mode to the far right
+        if (GB_AIBits != null && TC_trdata != null) 
+        {
+            GB_AIBits.Left = TC_trdata.Width - GB_AIBits.Width - 30;
+            if (CB_Mode != null) CB_Mode.Left = GB_AIBits.Left;
+            if (L_Mode != null) L_Mode.Left = CB_Mode.Left - L_Mode.Width - 5;
+        }
+
+        // 5. Fix Hidden Power overlap by anchoring it much lower in the Stats Grid
+        if (CB_HPType != null)
+        {
+            // Push it down to Y:185, well below the standard EV/IV input rows
+            CB_HPType.Top = 230; 
+            CB_HPType.Left = 110;
+            CB_HPType.BringToFront();
+
+            if (CB_HPType.Parent != null)
+            {
+                foreach (Control c in CB_HPType.Parent.Controls)
+                {
+                    if (c is Label l && l.Text.Contains("Hidden Power"))
+                    {
+                        l.Top = CB_HPType.Top + 4; // Align text vertically with dropdown
+                        l.Left = CB_HPType.Left - l.Width - 5;
+                        l.BringToFront();
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 6. Hide useless old buttons
+        if (B_EnableMega != null) B_EnableMega.Visible = false;
+        if (B_EnableZMove != null) B_EnableZMove.Visible = false;
     }
 
     private int GetSlot(object sender)
@@ -94,7 +177,6 @@ public partial class SMTE : Form
         }
         else if (e.Button == MouseButtons.Left)
         {
-            // Auto-save the currently selected slot before moving to the new one
             if (currentSlot != -1 && currentSlot < Trainers[index].NumPokemon)
             {
                 Trainers[index].Pokemon[currentSlot] = PrepareTP7();
@@ -103,7 +185,6 @@ public partial class SMTE : Form
 
             if (slot < Trainers[index].NumPokemon)
             {
-                // View existing Pokemon
                 var pk = Trainers[index].Pokemon[slot];
                 try { PopulateFieldsTP7(pk); } catch { }
                 GetSlotColor(slot, Properties.Resources.slotView);
@@ -111,7 +192,6 @@ public partial class SMTE : Form
             }
             else if (slot == Trainers[index].NumPokemon && slot < 6)
             {
-                // Add new Pokemon to the next available empty slot
                 if (CB_Species.SelectedIndex == 0) { WinFormsUtil.Alert("Can't set empty slot."); return; }
                 var pk = PrepareTP7();
                 Trainers[index].Pokemon.Add(pk);
@@ -146,19 +226,16 @@ public partial class SMTE : Form
         pb.Image = WinFormsUtil.ScaleImage(rawImg, 2);
     }
 
-    // Top Level Functions
     private void RefreshFormAbility(object sender, EventArgs e)
     {
-        if (index < 0)
-            return;
+        if (index < 0) return;
         pkm.Form = CB_Forme.SelectedIndex;
         RefreshPKMSlotAbility();
     }
 
     private void RefreshSpeciesAbility(object sender, EventArgs e)
     {
-        if (index < 0)
-            return;
+        if (index < 0) return;
         pkm.Species = (ushort)CB_Species.SelectedIndex;
         FormUtil.SetForms(CB_Species.SelectedIndex, CB_Forme, AltForms);
         RefreshPKMSlotAbility();
@@ -167,7 +244,6 @@ public partial class SMTE : Form
     private void RefreshPKMSlotAbility()
     {
         int previousAbility = CB_Ability.SelectedIndex;
-
         int species = CB_Species.SelectedIndex;
         int formnum = CB_Forme.SelectedIndex;
         species = Main.SpeciesStat[species].FormeIndex(species, formnum);
@@ -244,8 +320,8 @@ public partial class SMTE : Form
         CB_Gender.Items.Add("♀ / Female");
 
         CB_Forme.Items.Add("");
-
         CB_Species.SelectedIndex = 0;
+
         CB_Item_1.Items.Clear();
         CB_Item_2.Items.Clear();
         CB_Item_3.Items.Clear();
@@ -260,7 +336,7 @@ public partial class SMTE : Form
 
         CB_Money.Items.Clear();
         for (int i = 0; i < 256; i++)
-        { CB_Money.Items.Add(i.ToString()); }
+            CB_Money.Items.Add(i.ToString());
 
         CB_TrainerID.SelectedIndex = 0;
         index = 0;
@@ -274,18 +350,17 @@ public partial class SMTE : Form
         {
             Trainers[index].Pokemon[currentSlot] = PrepareTP7();
         }
-        currentSlot = -1; // Reset slot when trainer changes
+        currentSlot = -1;
 
         SaveEntry();
         LoadEntry();
-        if (TC_trdata.SelectedIndex == TC_trdata.TabCount - 1) // last
+        if (TC_trdata.SelectedIndex == TC_trdata.TabCount - 1)
             TC_trdata.SelectedIndex = 0;
     }
 
     private void SaveEntry()
     {
-        if (index < 0)
-            return;
+        if (index < 0) return;
         var tr = Trainers[index];
         PrepareTR7(tr);
         SaveData(tr, index);
@@ -303,10 +378,8 @@ public partial class SMTE : Form
     {
         index = CB_TrainerID.SelectedIndex;
         var tr = Trainers[index];
-
         loading = true;
         TB_TrainerName.Text = TrainerNames[index];
-
         PopulateFieldsTD7(tr);
         loading = false;
     }
@@ -317,7 +390,6 @@ public partial class SMTE : Form
     private void PopulateFieldsTP7(TrainerPoke7 pk)
     {
         pkm = pk.Clone();
-
         int spec = pkm.Species, form = pkm.Form;
 
         CB_Species.SelectedIndex = spec;
@@ -404,7 +476,6 @@ public partial class SMTE : Form
 
     private void PopulateFieldsTD7(TrainerData7 tr)
     {
-        // Load Trainer Data
         CB_Trainer_Class.SelectedIndex = tr.TrainerClass;
         NUD_NumPoke.Value = tr.NumPokemon;
         CB_Item_1.SelectedIndex = tr.Item1;
@@ -459,12 +530,10 @@ public partial class SMTE : Form
         RandSettings.SetFormSettings(this, Tab_Rand.Controls);
     }
 
-    // Dumping
     private void DumpTxt(object sender, EventArgs e)
     {
         var sfd = new SaveFileDialog { FileName = "Trainers.txt" };
-        if (sfd.ShowDialog() != DialogResult.OK)
-            return;
+        if (sfd.ShowDialog() != DialogResult.OK) return;
         var sb = new StringBuilder();
         foreach (var Trainer in Trainers)
             sb.Append(GetTrainerString(Trainer));
@@ -480,8 +549,7 @@ public partial class SMTE : Form
         sb.Append("Pokemon: ").Append(tr.NumPokemon).AppendLine();
         for (int i = 0; i < tr.NumPokemon; i++)
         {
-            if (tr.Pokemon[i].Shiny)
-                sb.Append("Shiny ");
+            if (tr.Pokemon[i].Shiny) sb.Append("Shiny ");
             sb.Append(specieslist[tr.Pokemon[i].Species]);
             sb.Append(" (Lv. ").Append(tr.Pokemon[i].Level).Append(") ");
             if (tr.Pokemon[i].Item > 0)
@@ -500,15 +568,13 @@ public partial class SMTE : Form
 
     private void UpdateNumPokemon(object sender, EventArgs e)
     {
-        if (index < 0)
-            return;
+        if (index < 0) return;
         Trainers[index].NumPokemon = (int)NUD_NumPoke.Value;
     }
 
     private void UpdateTrainerName(object sender, EventArgs e)
     {
-        if (loading)
-            return;
+        if (loading) return;
         string str = TB_TrainerName.Text;
         CB_TrainerID.Items[index] = GetEntryTitle(str, index);
     }
@@ -517,17 +583,14 @@ public partial class SMTE : Form
 
     private void UpdateStats(object sender, EventArgs e)
     {
-        if (updatingStats)
-            return;
+        if (updatingStats) return;
         var tb_iv = new[] { TB_HPIV, TB_ATKIV, TB_DEFIV, TB_SPEIV, TB_SPAIV, TB_SPDIV };
         var tb_ev = new[] { TB_HPEV, TB_ATKEV, TB_DEFEV, TB_SPEEV, TB_SPAEV, TB_SPDEV };
         for (int i = 0; i < 6; i++)
         {
             updatingStats = true;
-            if (WinFormsUtil.ToInt32(tb_iv[i]) > 31)
-                tb_iv[i].Text = "31";
-            if (WinFormsUtil.ToInt32(tb_ev[i]) > 255)
-                tb_ev[i].Text = "255";
+            if (WinFormsUtil.ToInt32(tb_iv[i]) > 31) tb_iv[i].Text = "31";
+            if (WinFormsUtil.ToInt32(tb_ev[i]) > 255) tb_ev[i].Text = "255";
             updatingStats = false;
         }
 
@@ -545,7 +608,6 @@ public partial class SMTE : Form
         Stats[5] = (ushort)(((Util.ToInt32(TB_SPDIV.Text) + (2 * p.SPD) + (Util.ToInt32(TB_SPDEV.Text) / 4)) * level / 100) + 5);
         Stats[3] = (ushort)(((Util.ToInt32(TB_SPEIV.Text) + (2 * p.SPE) + (Util.ToInt32(TB_SPEEV.Text) / 4)) * level / 100) + 5);
 
-        // Account for nature
         int incr = (Nature / 5) + 1;
         int decr = (Nature % 5) + 1;
         if (incr != decr)
@@ -566,16 +628,13 @@ public partial class SMTE : Form
         TB_IVTotal.Text = tb_iv.Sum(WinFormsUtil.ToInt32).ToString();
         TB_EVTotal.Text = tb_ev.Sum(WinFormsUtil.ToInt32).ToString();
 
-        // Recolor the Stat Labels based on boosted stats.
         {
             incr--;
             decr--;
             Label[] labarray = [Label_ATK, Label_DEF, Label_SPE, Label_SPA, Label_SPD];
-            // Reset Label Colors
             foreach (Label label in labarray)
                 label.ResetForeColor();
 
-            // Set Colored StatLabels only if Nature isn't Neutral
             if (incr != decr)
             {
                 labarray[incr].ForeColor = Color.Red;
@@ -590,8 +649,7 @@ public partial class SMTE : Form
 
     private void UpdateHPType(object sender, EventArgs e)
     {
-        if (updatingStats)
-            return;
+        if (updatingStats) return;
         var tb_iv = new[] { TB_HPIV, TB_ATKIV, TB_DEFIV, TB_SPAIV, TB_SPDIV, TB_SPEIV };
         int[] newIVs = SetHPIVs(CB_HPType.SelectedIndex, tb_iv.Select(WinFormsUtil.ToInt32).ToArray());
         updatingStats = true;
@@ -612,22 +670,10 @@ public partial class SMTE : Form
     }
 
     private static readonly int[,] hpivs = {
-        { 1, 1, 0, 0, 0, 0 }, // Fighting
-        { 0, 0, 0, 0, 0, 1 }, // Flying
-        { 1, 1, 0, 0, 0, 1 }, // Poison
-        { 1, 1, 1, 0, 0, 1 }, // Ground
-        { 1, 1, 0, 1, 0, 0 }, // Rock
-        { 1, 0, 0, 1, 0, 1 }, // Bug
-        { 1, 0, 1, 1, 0, 1 }, // Ghost
-        { 1, 1, 1, 1, 0, 1 }, // Steel
-        { 1, 0, 1, 0, 1, 0 }, // Fire
-        { 1, 0, 0, 0, 1, 1 }, // Water
-        { 1, 0, 1, 0, 1, 1 }, // Grass
-        { 1, 1, 1, 0, 1, 1 }, // Electric
-        { 1, 0, 1, 1, 1, 0 }, // Psychic
-        { 1, 0, 0, 1, 1, 1 }, // Ice
-        { 1, 0, 1, 1, 1, 1 }, // Dragon
-        { 1, 1, 1, 1, 1, 1 }, // Dark
+        { 1, 1, 0, 0, 0, 0 }, { 0, 0, 0, 0, 0, 1 }, { 1, 1, 0, 0, 0, 1 }, { 1, 1, 1, 0, 0, 1 }, 
+        { 1, 1, 0, 1, 0, 0 }, { 1, 0, 0, 1, 0, 1 }, { 1, 0, 1, 1, 0, 1 }, { 1, 1, 1, 1, 0, 1 }, 
+        { 1, 0, 1, 0, 1, 0 }, { 1, 0, 0, 0, 1, 1 }, { 1, 0, 1, 0, 1, 1 }, { 1, 1, 1, 0, 1, 1 }, 
+        { 1, 0, 1, 1, 1, 0 }, { 1, 0, 0, 1, 1, 1 }, { 1, 0, 1, 1, 1, 1 }, { 1, 1, 1, 1, 1, 1 }
     };
 
     private static readonly int[] usualBan = [165, 621, 464];
@@ -639,27 +685,17 @@ public partial class SMTE : Form
         CB_TrainerID.SelectedIndex = 0;
         var rnd = new SpeciesRandomizer(Main.Config)
         {
-            G1 = CHK_G1.Checked,
-            G2 = CHK_G2.Checked,
-            G3 = CHK_G3.Checked,
-            G4 = CHK_G4.Checked,
-            G5 = CHK_G5.Checked,
-            G6 = CHK_G6.Checked,
-            G7 = CHK_G7.Checked,
-
-            E = CHK_E.Checked,
-            L = CHK_L.Checked,
-            rBST = CHK_BST.Checked,
+            G1 = CHK_G1.Checked, G2 = CHK_G2.Checked, G3 = CHK_G3.Checked,
+            G4 = CHK_G4.Checked, G5 = CHK_G5.Checked, G6 = CHK_G6.Checked,
+            G7 = CHK_G7.Checked, E = CHK_E.Checked, L = CHK_L.Checked, rBST = CHK_BST.Checked,
         };
         rnd.Initialize();
 
-        // add Legendary/Mythical to final evolutions if checked
         if (CHK_L.Checked) FinalEvo = [.. FinalEvo, .. Legendary];
         if (CHK_E.Checked) FinalEvo = [.. FinalEvo, .. Mythical];
 
-        var banned = new List<int>(usualBan.Concat(Legal.Z_Moves)); // Struggle, Hyperspace Fury, Dark Void
-        if (CHK_NoFixedDamage.Checked)
-            banned.AddRange(MoveRandomizer.FixedDamageMoves);
+        var banned = new List<int>(usualBan.Concat(Legal.Z_Moves)); 
+        if (CHK_NoFixedDamage.Checked) banned.AddRange(MoveRandomizer.FixedDamageMoves);
         var move = new MoveRandomizer(Main.Config)
         {
             BannedMoves = banned,
@@ -673,27 +709,22 @@ public partial class SMTE : Form
         for (int i = 0; i < Trainers.Length; i++)
         {
             var tr = Trainers[i];
-            if (tr.Pokemon.Count == 0)
-                continue;
+            if (tr.Pokemon.Count == 0) continue;
 
-            // Trainer Properties
             if (CHK_RandomClass.Checked)
             {
-                // ignore special classes
                 if (CHK_IgnoreSpecialClass.Checked && !SpecialClasses.Contains(tr.TrainerClass))
                 {
                     int randClass() => (int)(Util.Random32() % CB_Trainer_Class.Items.Count);
                     int rv; do { rv = randClass(); }
-                    while (SpecialClasses.Contains(rv)); // don't allow disallowed classes
+                    while (SpecialClasses.Contains(rv)); 
                     tr.TrainerClass = (byte)rv;
                 }
-
-                // all classes
                 else if (!CHK_IgnoreSpecialClass.Checked)
                 {
                     int randClass() => (int)(Util.Random32() % CB_Trainer_Class.Items.Count);
                     int rv; do { rv = randClass(); }
-                    while (rv == 082); // Lusamine 2 can crash multi battles, skip
+                    while (rv == 082); 
                     tr.TrainerClass = (byte)rv;
                 }
             }
@@ -708,13 +739,8 @@ public partial class SMTE : Form
             {
                 for (int p = tr.NumPokemon; p < NUD_RMin.Value; p++)
                 {
-                    tr.Pokemon.Add(new TrainerPoke7
-                    {
-                        Species = rnd.GetRandomSpecies(avgSpec),
-                        Level = avgLevel,
-                    });
+                    tr.Pokemon.Add(new TrainerPoke7 { Species = rnd.GetRandomSpecies(avgSpec), Level = avgLevel });
                 }
-
                 tr.NumPokemon = (int)NUD_RMin.Value;
             }
             if (tr.NumPokemon > NUD_RMax.Value)
@@ -726,57 +752,39 @@ public partial class SMTE : Form
             {
                 for (int g = tr.NumPokemon; g < 6; g++)
                 {
-                    tr.Pokemon.Add(new TrainerPoke7
-                    {
-                        Species = rnd.GetRandomSpecies(avgSpec),
-                        Level = avgLevel,
-                    });
+                    tr.Pokemon.Add(new TrainerPoke7 { Species = rnd.GetRandomSpecies(avgSpec), Level = avgLevel });
                 }
-
                 tr.NumPokemon = 6;
             }
 
-            // force 1 pkm to keep forced Battle Royal fair
-            if (royal.Contains(tr.ID))
-                tr.NumPokemon = 1;
+            if (royal.Contains(tr.ID)) tr.NumPokemon = 1;
 
-            // PKM Properties
             foreach (var pk in tr.Pokemon)
             {
                 if (CHK_RandomPKM.Checked)
                 {
                     int Type = CHK_TypeTheme.Checked ? (int)Util.Random32() % 17 : -1;
-
-                    // replaces Megas with another Mega (Dexio and Lysandre in USUM)
                     if (MegaDictionary.Values.Any(z => z.Contains(pk.Item)))
                     {
                         int[] mega = GetRandomMega(out int species);
                         pk.Species = species;
                         pk.Item = mega[Util.Rand.Next(0, mega.Length)];
-                        pk.Form = 0; // allow it to Mega Evolve naturally
+                        pk.Form = 0; 
                     }
-
-                    // every other pkm
                     else
                     {
                         pk.Species = rnd.GetRandomSpeciesType(pk.Species, Type);
                         pk.Item = items[Util.Random32() % items.Length];
                         pk.Form = Randomizer.GetRandomForme(pk.Species, CHK_RandomMegaForm.Checked, true, Main.SpeciesStat);
                     }
-
-                    pk.Gender = 0; // random
-                    pk.Nature = (int)(Util.Random32() % CB_Nature.Items.Count); // random
+                    pk.Gender = 0; 
+                    pk.Nature = (int)(Util.Random32() % CB_Nature.Items.Count); 
                 }
-                if (CHK_Level.Checked)
-                    pk.Level = Randomizer.GetModifiedLevel(pk.Level, NUD_LevelBoost.Value);
-                if (CHK_RandomShiny.Checked)
-                    pk.Shiny = Util.Rand.Next(0, 100 + 1) < NUD_Shiny.Value;
-                if (CHK_RandomAbilities.Checked)
-                    pk.Ability = (int)Util.Random32() % 4;
-                if (CHK_MaxDiffPKM.Checked)
-                    pk.IVs = [31, 31, 31, 31, 31, 31];
-                if (CHK_MaxAI.Checked)
-                    tr.AI |= (int)(TrainerAI.Basic | TrainerAI.Strong | TrainerAI.Expert | TrainerAI.PokeChange);
+                if (CHK_Level.Checked) pk.Level = Randomizer.GetModifiedLevel(pk.Level, NUD_LevelBoost.Value);
+                if (CHK_RandomShiny.Checked) pk.Shiny = Util.Rand.Next(0, 100 + 1) < NUD_Shiny.Value;
+                if (CHK_RandomAbilities.Checked) pk.Ability = (int)Util.Random32() % 4;
+                if (CHK_MaxDiffPKM.Checked) pk.IVs = [31, 31, 31, 31, 31, 31];
+                if (CHK_MaxAI.Checked) tr.AI |= (int)(TrainerAI.Basic | TrainerAI.Strong | TrainerAI.Expert | TrainerAI.PokeChange);
 
                 if (CHK_ForceFullyEvolved.Checked && pk.Level >= NUD_ForceFullyEvolved.Value && !FinalEvo.Contains(pk.Species))
                 {
@@ -787,22 +795,16 @@ public partial class SMTE : Form
 
                 pk.Moves = CB_Moves.SelectedIndex switch
                 {
-                    // Random
                     1 => move.GetRandomMoveset(pk.Species, 4),
-                    // Current LevelUp
                     2 => learn.GetCurrentMoves(pk.Species, pk.Form, pk.Level, 4),
-                    // Metronome
                     3 => [118, 0, 0, 0],
-                    // Otherwise
                     _ => pk.Moves,
                 };
 
-                // high-power attacks
                 if (CHK_ForceHighPower.Checked && pk.Level >= NUD_ForceHighPower.Value)
                     pk.Moves = learn.GetHighPoweredMoves(pk.Species, pk.Form, 4);
 
-                // sanitize moves
-                if (CB_Moves.SelectedIndex > 1) // learn source
+                if (CB_Moves.SelectedIndex > 1) 
                 {
                     var moves = pk.Moves;
                     if (move.SanitizeMovesetForBannedMoves(moves, pk.Species))
@@ -811,7 +813,7 @@ public partial class SMTE : Form
             }
             SaveData(tr, i);
         }
-        WinFormsUtil.Alert("Randomized all Trainers according to specification!", "Press the Dump to .TXT button to view the new Trainer information!");
+        WinFormsUtil.Alert("Randomized all Trainers according to specification!");
     }
 
     private void B_HighAttack_Click(object sender, EventArgs e)
@@ -837,30 +839,17 @@ public partial class SMTE : Form
     private void SetMoves(IList<int> moves)
     {
         var mcb = new[] { CB_Move1, CB_Move2, CB_Move3, CB_Move4 };
-        for (int i = 0; i < mcb.Length; i++)
-            mcb[i].SelectedIndex = moves[i];
+        for (int i = 0; i < mcb.Length; i++) mcb[i].SelectedIndex = moves[i];
     }
 
-    // Randomization UI
     private void CB_Moves_SelectedIndexChanged(object sender, EventArgs e)
     {
-        CHK_Damage.Checked = CHK_STAB.Checked =
-            CHK_Damage.Enabled = CHK_STAB.Enabled =
-                NUD_Damage.Enabled = NUD_STAB.Enabled = CB_Moves.SelectedIndex == 1;
-
-        CHK_ForceHighPower.Enabled = CHK_ForceHighPower.Checked = NUD_ForceHighPower.Enabled =
-            CHK_NoFixedDamage.Enabled = CHK_NoFixedDamage.Checked = CB_Moves.SelectedIndex is 1 or 2;
+        CHK_Damage.Checked = CHK_STAB.Checked = CHK_Damage.Enabled = CHK_STAB.Enabled = NUD_Damage.Enabled = NUD_STAB.Enabled = CB_Moves.SelectedIndex == 1;
+        CHK_ForceHighPower.Enabled = CHK_ForceHighPower.Checked = NUD_ForceHighPower.Enabled = CHK_NoFixedDamage.Enabled = CHK_NoFixedDamage.Checked = CB_Moves.SelectedIndex is 1 or 2;
     }
 
-    private void CHK_Damage_CheckedChanged(object sender, EventArgs e)
-    {
-        NUD_Damage.Enabled = CHK_Damage.Checked;
-    }
-
-    private void CHK_STAB_CheckedChanged(object sender, EventArgs e)
-    {
-        NUD_STAB.Enabled = CHK_STAB.Checked;
-    }
+    private void CHK_Damage_CheckedChanged(object sender, EventArgs e) => NUD_Damage.Enabled = CHK_Damage.Checked;
+    private void CHK_STAB_CheckedChanged(object sender, EventArgs e) => NUD_STAB.Enabled = CHK_STAB.Checked;
 
     private void CHK_RandomPKM_CheckedChanged(object sender, EventArgs e)
     {
@@ -874,19 +863,11 @@ public partial class SMTE : Form
     private void CHK_RandomClass_CheckedChanged(object sender, EventArgs e)
     {
         CHK_IgnoreSpecialClass.Enabled = CHK_RandomClass.Checked;
-        if (!CHK_RandomClass.Checked)
-            CHK_IgnoreSpecialClass.Checked = false;
+        if (!CHK_RandomClass.Checked) CHK_IgnoreSpecialClass.Checked = false;
     }
 
-    private void CHK_RandomShiny_CheckedChanged(object sender, EventArgs e)
-    {
-        NUD_Shiny.Enabled = CHK_RandomShiny.Checked;
-    }
-
-    private void CHK_Level_CheckedChanged(object sender, EventArgs e)
-    {
-        NUD_LevelBoost.Enabled = CHK_Level.Checked;
-    }
+    private void CHK_RandomShiny_CheckedChanged(object sender, EventArgs e) => NUD_Shiny.Enabled = CHK_RandomShiny.Checked;
+    private void CHK_Level_CheckedChanged(object sender, EventArgs e) => NUD_LevelBoost.Enabled = CHK_Level.Checked;
 
     private static int[] GetRandomMega(out int species)
     {
@@ -917,7 +898,6 @@ public partial class SMTE : Form
     private void B_MasterAll_Click(object sender, EventArgs e)
     {
         if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Apply Master AI to ALL Trainers?") != DialogResult.Yes) return;
-        
         foreach (var tr in Trainers)
         {
             if (tr == null) continue;
@@ -927,29 +907,176 @@ public partial class SMTE : Form
         WinFormsUtil.Alert("Master AI applied to all trainers.");
     }
 
-    private void B_EnableMega_Click(object sender, EventArgs e)
+// --- Showdown Import / Export Logic ---
+    private void B_ExportSet_Click(object sender, EventArgs e)
     {
-        var tr = Trainers[index];
-        tr.AI |= (int)(TrainerAI.Strong | TrainerAI.Expert);
+        if (currentSlot < 0 || currentSlot >= Trainers[index].Pokemon.Count) return;
+        var pk = Trainers[index].Pokemon[currentSlot];
         
-        bool hasItem = tr.Pokemon.Any(p => p.Item != 0);
-        if (!hasItem)
+        StringBuilder sb = new StringBuilder();
+        string speciesName = specieslist[pk.Species];
+        string itemName = pk.Item > 0 ? $" @ {itemlist[pk.Item]}" : "";
+        sb.AppendLine($"{speciesName}{itemName}");
+        
+        if (pk.Ability > 0) sb.AppendLine($"Ability: {abilitylist[pk.Ability]}");
+        
+        List<string> evs = new List<string>();
+        if (pk.EV_HP > 0) evs.Add($"{pk.EV_HP} HP");
+        if (pk.EV_ATK > 0) evs.Add($"{pk.EV_ATK} Atk");
+        if (pk.EV_DEF > 0) evs.Add($"{pk.EV_DEF} Def");
+        if (pk.EV_SPA > 0) evs.Add($"{pk.EV_SPA} SpA");
+        if (pk.EV_SPD > 0) evs.Add($"{pk.EV_SPD} SpD");
+        if (pk.EV_SPE > 0) evs.Add($"{pk.EV_SPE} Spe");
+        if (evs.Count > 0) sb.AppendLine($"EVs: {string.Join(" / ", evs)}");
+
+        sb.AppendLine($"{Main.Config.GetText(TextName.Natures)[pk.Nature]} Nature");
+
+        List<string> ivs = new List<string>();
+        if (pk.IV_HP != 31) ivs.Add($"{pk.IV_HP} HP");
+        if (pk.IV_ATK != 31) ivs.Add($"{pk.IV_ATK} Atk");
+        if (pk.IV_DEF != 31) ivs.Add($"{pk.IV_DEF} Def");
+        if (pk.IV_SPA != 31) ivs.Add($"{pk.IV_SPA} SpA");
+        if (pk.IV_SPD != 31) ivs.Add($"{pk.IV_SPD} SpD");
+        if (pk.IV_SPE != 31) ivs.Add($"{pk.IV_SPE} Spe");
+        if (ivs.Count > 0) sb.AppendLine($"IVs: {string.Join(" / ", ivs)}");
+
+        foreach (var move in pk.Moves)
         {
-            WinFormsUtil.Alert("AI updated to use Mega Evolution, but no Pokémon on this team is holding an item!", "Remember to assign a Mega Stone in the Main tab.");
+            if (move > 0) sb.AppendLine($"- {movelist[move]}");
         }
-        PopulateFieldsTD7(tr);
+
+        Clipboard.SetText(sb.ToString());
+        WinFormsUtil.Alert("Set exported to clipboard!");
     }
 
-    private void B_EnableZMove_Click(object sender, EventArgs e)
+    private void B_ImportSet_Click(object sender, EventArgs e)
     {
+        if (currentSlot < 0 || currentSlot >= Trainers[index].Pokemon.Count) return;
+        string text = Clipboard.GetText();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        var pk = Trainers[index].Pokemon[currentSlot];
+        ParseShowdownSet(text, pk);
+        PopulateFieldsTP7(pk);
+        GetQuickFiller(pba[currentSlot], pk);
+        WinFormsUtil.Alert("Set imported successfully!");
+    }
+
+    private void B_ImportTeam_Click(object sender, EventArgs e)
+    {
+        string text = Clipboard.GetText();
+        if (string.IsNullOrWhiteSpace(text)) return;
+
+        string[] sets = text.Split(new[] { "\r\n\r\n", "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
         var tr = Trainers[index];
-        tr.AI |= (int)(TrainerAI.Strong | TrainerAI.Expert);
-        
-        bool hasItem = tr.Pokemon.Any(p => p.Item != 0);
-        if (!hasItem)
+
+        int pkmCount = Math.Min(sets.Length, 6);
+        tr.Pokemon.Clear();
+
+        for (int i = 0; i < pkmCount; i++)
         {
-            WinFormsUtil.Alert("AI updated to use Z-Moves, but no Pokémon on this team is holding an item!", "Remember to assign a Z-Crystal in the Main tab.");
+            TrainerPoke7 newPk = new TrainerPoke7();
+            ParseShowdownSet(sets[i], newPk);
+            tr.Pokemon.Add(newPk);
         }
-        PopulateFieldsTD7(tr);
+
+        tr.NumPokemon = pkmCount;
+        NUD_NumPoke.Value = pkmCount;
+        if (CHK_6PKM != null) CHK_6PKM.Checked = pkmCount == 6; 
+        
+        PopulateTeam(tr);
+        if (pkmCount > 0)
+        {
+            currentSlot = 0;
+            PopulateFieldsTP7(tr.Pokemon[0]);
+            GetSlotColor(0, Properties.Resources.slotView);
+        }
+        
+        WinFormsUtil.Alert($"Imported {pkmCount} Pokémon from clipboard!");
+    }
+
+    private void ParseShowdownSet(string set, TrainerPoke7 pk)
+    {
+        string[] lines = set.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0) return;
+
+        // Default all IVs to 31
+        pk.IV_HP = pk.IV_ATK = pk.IV_DEF = pk.IV_SPA = pk.IV_SPD = pk.IV_SPE = 31;
+        pk.EV_HP = pk.EV_ATK = pk.EV_DEF = pk.EV_SPA = pk.EV_SPD = pk.EV_SPE = 0;
+        pk.Moves = new int[4];
+        int moveIndex = 0;
+
+        string[] naturesText = Main.Config.GetText(TextName.Natures);
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            
+            if (i == 0)
+            {
+                string[] parts = line.Split('@');
+                string speciesName = parts[0].Trim();
+                
+                if (speciesName.Contains("(")) speciesName = speciesName.Substring(0, speciesName.IndexOf("(")).Trim();
+
+                pk.Species = Math.Max(0, Array.FindIndex(specieslist, s => s.Equals(speciesName, StringComparison.OrdinalIgnoreCase)));
+                
+                if (parts.Length > 1)
+                {
+                    string itemName = parts[1].Trim();
+                    pk.Item = Math.Max(0, Array.FindIndex(itemlist, it => it.Equals(itemName, StringComparison.OrdinalIgnoreCase)));
+                }
+                continue;
+            }
+
+            if (line.StartsWith("Ability:"))
+            {
+                string abilityName = line.Replace("Ability:", "").Trim();
+                pk.Ability = Math.Max(0, Array.FindIndex(abilitylist, a => a.Equals(abilityName, StringComparison.OrdinalIgnoreCase)));
+            }
+            else if (line.StartsWith("EVs:"))
+            {
+                int hp = pk.EV_HP, atk = pk.EV_ATK, def = pk.EV_DEF, spa = pk.EV_SPA, spd = pk.EV_SPD, spe = pk.EV_SPE;
+                ParseStats(line.Replace("EVs:", ""), ref hp, ref atk, ref def, ref spa, ref spd, ref spe);
+                pk.EV_HP = hp; pk.EV_ATK = atk; pk.EV_DEF = def; pk.EV_SPA = spa; pk.EV_SPD = spd; pk.EV_SPE = spe;
+            }
+            else if (line.StartsWith("IVs:"))
+            {
+                int hp = pk.IV_HP, atk = pk.IV_ATK, def = pk.IV_DEF, spa = pk.IV_SPA, spd = pk.IV_SPD, spe = pk.IV_SPE;
+                ParseStats(line.Replace("IVs:", ""), ref hp, ref atk, ref def, ref spa, ref spd, ref spe);
+                pk.IV_HP = hp; pk.IV_ATK = atk; pk.IV_DEF = def; pk.IV_SPA = spa; pk.IV_SPD = spd; pk.IV_SPE = spe;
+            }
+            else if (line.EndsWith("Nature"))
+            {
+                string natureName = line.Replace("Nature", "").Trim();
+                pk.Nature = Math.Max(0, Array.FindIndex(naturesText, n => n.Equals(natureName, StringComparison.OrdinalIgnoreCase)));
+            }
+            else if (line.StartsWith("-") && moveIndex < 4)
+            {
+                string moveName = line.Substring(1).Trim();
+                if (moveName.StartsWith("Hidden Power")) moveName = "Hidden Power";
+                
+                pk.Moves[moveIndex] = Math.Max(0, Array.FindIndex(movelist, m => m.Equals(moveName, StringComparison.OrdinalIgnoreCase)));
+                moveIndex++;
+            }
+        }
+    }
+
+    private void ParseStats(string statLine, ref int hp, ref int atk, ref int def, ref int spa, ref int spd, ref int spe)
+    {
+        string[] parts = statLine.Split('/');
+        foreach (string part in parts)
+        {
+            string[] split = part.Trim().Split(' ');
+            if (split.Length != 2 || !int.TryParse(split[0], out int val)) continue;
+
+            string stat = split[1].ToLower();
+            if (stat == "hp") hp = val;
+            else if (stat == "atk") atk = val;
+            else if (stat == "def") def = val;
+            else if (stat == "spa") spa = val;
+            else if (stat == "spd") spd = val;
+            else if (stat == "spe") spe = val;
+        }
     }
 }
