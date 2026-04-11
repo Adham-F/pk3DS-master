@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -49,20 +49,11 @@ public partial class ItemEditor7 : Form
         B_ExportTxt.Location = new Point(B_ImportTxt.Left - 95, B_Table.Top);
         B_ExportTxt.Click += B_ExportTxt_Click;
 
-        // --- NEW: Make Mega Stone Button ---
-        Button B_MakeMega = new Button();
-        B_MakeMega.Text = "Make Mega";
-        B_MakeMega.Size = new Size(85, 23);
-        B_MakeMega.Location = new Point(B_ExportTxt.Left - 95, B_Table.Top);
-        B_MakeMega.Click += B_MakeMega_Click;
-
         this.Controls.Add(B_ImportTxt);
         this.Controls.Add(B_ExportTxt);
-        this.Controls.Add(B_MakeMega);
 
         B_ImportTxt.BringToFront();
         B_ExportTxt.BringToFront();
-        B_MakeMega.BringToFront();
     }
 
     private void B_ExportTxt_Click(object sender, EventArgs e)
@@ -174,33 +165,6 @@ private void B_ImportTxt_Click(object sender, EventArgs e)
 
     private int entry = -1;
 
-    private void B_MakeMega_Click(object sender, EventArgs e)
-    {
-        if (Grid.SelectedObject == null) return;
-
-        object itemObj = Grid.SelectedObject;
-        var type = itemObj.GetType();
-
-        // Safely set properties based on the exact names the PropertyGrid uses
-        var propPacked = type.GetProperty("Packed");
-        if (propPacked != null) propPacked.SetValue(itemObj, Convert.ChangeType(31, propPacked.PropertyType));
-
-        var propUnk = type.GetProperty("Unk_0xD");
-        if (propUnk != null) propUnk.SetValue(itemObj, Convert.ChangeType(1, propUnk.PropertyType));
-
-        var propSort = type.GetProperty("SortIndex");
-        if (propSort != null) 
-        {
-            // Defaulting to 225 as the baseline "after 224"
-            propSort.SetValue(itemObj, Convert.ChangeType(225, propSort.PropertyType)); 
-        }
-
-        // Re-assign the boxed object back to the grid to force a visual refresh
-        Grid.SelectedObject = itemObj;
-        Grid.Refresh();
-
-        WinFormsUtil.Alert("Item updated with base Mega Stone values!", "SortIndex set to 225. If you are adding multiple custom Mega Stones, remember to manually increase this number by 1 for each new stone.");
-    }
 
     private void ChangeEntry(object sender, EventArgs e)
     {

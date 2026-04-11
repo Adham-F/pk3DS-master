@@ -1,0 +1,247 @@
+[
+  {
+    "Name": "Egg Bomb",
+    "Description": "Researched mechanics for Egg Bomb. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Sky Attack",
+    "Description": "Researched mechanics for Sky Attack. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Present",
+    "Description": "Researched mechanics for Present. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Power Whip",
+    "Description": "Researched mechanics for Power Whip. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Crush Grip",
+    "Description": "Researched mechanics for Crush Grip. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Flying Press",
+    "Description": "Researched mechanics for Flying Press. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Light of Ruin",
+    "Description": "Researched mechanics for Light of Ruin. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Sparkling Aria",
+    "Description": "Researched mechanics for Sparkling Aria. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Shell Trap",
+    "Description": "Researched mechanics for Shell Trap. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Prismatic Laser",
+    "Description": "Researched mechanics for Prismatic Laser. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Plasma Fist",
+    "Description": "Researched mechanics for Plasma Fist. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Charge",
+    "Description": "Researched mechanics for Charge. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Freeze Shock & Ice Burn",
+    "Description": "Researched mechanics for Freeze Shock & Ice Burn. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Dig & Dive",
+    "Description": "Researched mechanics for Dig & Dive. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Terrain Pulse",
+    "Description": "Researched mechanics for Terrain Pulse. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Corrosive Gas",
+    "Description": "Researched mechanics for Corrosive Gas. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Mystical Power",
+    "Description": "Researched mechanics for Mystical Power. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Dire Claw",
+    "Description": "Researched mechanics for Dire Claw. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Alluring Voice",
+    "Description": "Researched mechanics for Alluring Voice. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Bitter Malice",
+    "Description": "Researched mechanics for Bitter Malice. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Scale Shot",
+    "Description": "Researched mechanics for Scale Shot. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Luster Purge & Mist Ball",
+    "Description": "Researched mechanics for Luster Purge & Mist Ball. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Dragon Darts",
+    "Description": "Researched mechanics for Dragon Darts. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Electro Shot & Meteor Beam",
+    "Description": "Researched mechanics for Electro Shot & Meteor Beam. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Defog",
+    "Description": "Researched mechanics for Defog. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Leaf Blade",
+    "Description": "Researched mechanics for Leaf Blade. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Weather Ball",
+    "Description": "Researched mechanics for Weather Ball. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Weather Setting Moves",
+    "Description": "Researched mechanics for Weather Setting Moves. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Zap Cannon",
+    "Description": "Researched mechanics for Zap Cannon. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Relic Song",
+    "Description": "Researched mechanics for Relic Song. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Moonlight",
+    "Description": "Researched mechanics for Moonlight. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Metronome",
+    "Description": "Researched mechanics for Metronome. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Topsy Turvy",
+    "Description": "Researched mechanics for Topsy Turvy. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Hidden Power",
+    "Description": "Researched mechanics for Hidden Power. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Synchronoise",
+    "Description": "Researched mechanics for Synchronoise. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Scary Face",
+    "Description": "Researched mechanics for Scary Face. Hooks: 0",
+    "Patches": []
+  },
+  {
+    "Name": "Anchor Shot, Bullet Seed, Seed Bomb",
+    "Description": "Placeholder for Anchor Shot, Bullet Seed, Seed Bomb. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Body Press Effect overwrote Healing Wish",
+    "Description": "Placeholder for Body Press Effect overwrote Healing Wish. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Draco Meteor, Overheat, Leaf Storm",
+    "Description": "Placeholder for Draco Meteor, Overheat, Leaf Storm. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "False Swipe & Hold Back",
+    "Description": "Placeholder for False Swipe & Hold Back. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Forest's Curse & Trick-or-Treat",
+    "Description": "Placeholder for Forest's Curse & Trick-or-Treat. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Frenzy Plant & Seed Flare",
+    "Description": "Placeholder for Frenzy Plant & Seed Flare. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Genesis Supernova - set Type-matching Terrain",
+    "Description": "Placeholder for Genesis Supernova - set Type-matching Terrain. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Magnetic Flux and Gear Up Condition",
+    "Description": "Placeholder for Magnetic Flux and Gear Up Condition. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Psywave triple effect",
+    "Description": "Placeholder for Psywave triple effect. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Punch Buggy",
+    "Description": "Placeholder for Punch Buggy. Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Rollout & Ice Ball (similar to Triple Kick)",
+    "Description": "Placeholder for Rollout & Ice Ball (similar to Triple Kick). Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Rollout and Ice Ball (in line with old effect)",
+    "Description": "Placeholder for Rollout and Ice Ball (in line with old effect). Research pending.",
+    "Patches": []
+  },
+  {
+    "Name": "Splintered Stormshards - Primal moves get 20% chance to destroy terrain",
+    "Description": "Placeholder for Splintered Stormshards - Primal moves get 20% chance to destroy terrain. Research pending.",
+    "Patches": []
+  }
+]

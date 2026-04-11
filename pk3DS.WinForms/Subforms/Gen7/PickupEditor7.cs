@@ -1,4 +1,4 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
 using System;
 using System.IO;
 using System.Linq;
@@ -19,6 +19,25 @@ public partial class PickupEditor7 : Form
 
         byte[] data = pickup.Files[0];
         GetList(data);
+        dgvCommon.SelectionChanged += DgvCommon_SelectionChanged;
+    }
+
+    private void DgvCommon_SelectionChanged(object sender, EventArgs e)
+    {
+        if (dgvCommon.CurrentRow == null) return;
+        var cell = dgvCommon.CurrentRow.Cells[0];
+        if (cell.Value == null) return;
+        string itemStr = cell.Value.ToString();
+        // Parse item index from "ItemName - 123"
+        int dashIdx = itemStr.LastIndexOf('-');
+        if (dashIdx < 0) return;
+        if (!int.TryParse(itemStr.Substring(dashIdx + 1).Trim(), out int itemId)) return;
+        
+        string spritePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "img", "item", $"item_{itemId}.png");
+        if (File.Exists(spritePath))
+            PB_Item.Image = System.Drawing.Image.FromFile(spritePath);
+        else
+            PB_Item.Image = null;
     }
 
     private readonly LazyGARCFile g_pickup;

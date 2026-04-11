@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -14,8 +14,14 @@ namespace pk3DS.WinForms;
 
 public partial class PersonalEditor7 : Form
 {
-    public PersonalEditor7(byte[][] infiles)
+    private int[][] vanillaStats;
+    
+    private readonly byte[][] learnsets;
+    private readonly byte[][] eggmoves;
+    public PersonalEditor7(byte[][] infiles, byte[][] learnsets, byte[][] eggmoves)
     {
+        this.learnsets = learnsets;
+        this.eggmoves = eggmoves;
         InitializeComponent();
         helditem_boxes = [CB_HeldItem1, CB_HeldItem2, CB_HeldItem3];
         ability_boxes = [CB_Ability1, CB_Ability2, CB_Ability3];
@@ -43,6 +49,7 @@ public partial class PersonalEditor7 : Form
         TMs = TMEditor7.GetTMHMList();
 
         Setup();
+        LoadVanillaStats();
         CB_Species.SelectedIndex = 1;
         RandSettings.GetFormSettings(this, TP_Randomizer.Controls);
     }
@@ -83,6 +90,7 @@ public partial class PersonalEditor7 : Form
 
         477, 502, 432, 710, 707, 675, 673,
     ];
+    internal static int[] Tutors_USUM_Lengths = [15, 16, 15, 14, 7]; // Default lengths
 
     private readonly int[] baseForms, formVal;
     private readonly ushort[] TMs;
@@ -143,7 +151,9 @@ public partial class PersonalEditor7 : Form
         if (Main.Config.USUM)
         {
             string croPath = Path.Combine(Main.RomFSPath, "Shop.cro");
-            Tutors_USUM = TutorEditor7.GetUSUMTutors(croPath, Tutors_USUM);
+            var tutorData = TutorEditor7.GetUSUMTutorData(croPath, Tutors_USUM);
+            Tutors_USUM = tutorData.moves;
+            Tutors_USUM_Lengths = tutorData.lengths;
 
             foreach (var tutor in Tutors_USUM)
                 CLB_BeachTutors.Items.Add(moves[tutor]);
@@ -242,10 +252,19 @@ public partial class PersonalEditor7 : Form
             CHK_Variant.Checked = sm.LocalVariant;
         }
         var special = pkm.SpecialTutors;
-        if (special.Length > 0)
+        int currentIdx = 0;
+        for (int loc = 0; loc < 4 && loc < special.Length; loc++)
         {
-            for (int b = 0; b < CLB_BeachTutors.Items.Count && b < special[0].Length; b++)
-                CLB_BeachTutors.SetItemChecked(b, special[0][b]);
+            if (Tutors_USUM_Lengths == null || loc >= Tutors_USUM_Lengths.Length) break;
+            int count = Tutors_USUM_Lengths[loc];
+            for (int b = 0; b < count && b < special[loc].Length; b++)
+            {
+                if (currentIdx < CLB_BeachTutors.Items.Count)
+                {
+                    CLB_BeachTutors.SetItemChecked(currentIdx, special[loc][b]);
+                    currentIdx++;
+                }
+            }
         }
     }
 
@@ -329,12 +348,21 @@ public partial class PersonalEditor7 : Form
             sm.LocalVariant = CHK_Variant.Checked;
         }
         var special = pkm.SpecialTutors;
-        if (special.Length > 0)
+        int currentBIdx = 0;
+        for (int loc = 0; loc < 4 && loc < special.Length; loc++)
         {
-            for (int b = 0; b < CLB_BeachTutors.Items.Count && b < special[0].Length; b++)
-                special[0][b] = CLB_BeachTutors.GetItemChecked(b);
-            pkm.SpecialTutors = special;
+            if (Tutors_USUM_Lengths == null || loc >= Tutors_USUM_Lengths.Length) break;
+            int count = Tutors_USUM_Lengths[loc];
+            for (int b = 0; b < count && b < special[loc].Length; b++)
+            {
+                if (currentBIdx < CLB_BeachTutors.Items.Count)
+                {
+                    special[loc][b] = CLB_BeachTutors.GetItemChecked(currentBIdx);
+                    currentBIdx++;
+                }
+            }
         }
+        pkm.SpecialTutors = special;
     }
 
     private void SaveEntry()
@@ -535,7 +563,7 @@ public partial class PersonalEditor7 : Form
     }
     private void UpdateDynamicDiff(object sender, EventArgs e)
     {
-        if (pkm == null || originalFiles == null || entry < 0) return;
+        if (pkm == null || vanillaStats == null || entry < 0 || entry >= vanillaStats.Length) return;
         
         int.TryParse(TB_BaseHP.Text, out int hp);
         int.TryParse(TB_BaseATK.Text, out int atk);
@@ -544,46 +572,51 @@ public partial class PersonalEditor7 : Form
         int.TryParse(TB_BaseSPD.Text, out int spd);
         int.TryParse(TB_BaseSPE.Text, out int spe);
 
-        int targetEntry = entry;
+        bool isAlt = entry > Main.Config.MaxSpeciesID;
+        int[] origValues = new int[6];
+        string prefix = isAlt ? "Base Form" : "Vanilla";
 
-        // Only apply alternate form mapping if the entry is an alternate form (> MaxSpeciesID)
-        if (baseForms != null && targetEntry > Main.Config.MaxSpeciesID && targetEntry < baseForms.Length) 
+        if (isAlt)
         {
-            int mappedBase = baseForms[targetEntry];
-            if (mappedBase > 0 && mappedBase < originalFiles.Length)
-                targetEntry = mappedBase;
+            int baseID = baseForms[entry];
+            var bPkm = Main.SpeciesStat[baseID];
+            origValues[0] = bPkm.HP;
+            origValues[1] = bPkm.ATK;
+            origValues[2] = bPkm.DEF;
+            origValues[3] = bPkm.SPA;
+            origValues[4] = bPkm.SPD;
+            origValues[5] = bPkm.SPE;
         }
-        else if (targetEntry >= originalFiles.Length) 
+        else
         {
-            targetEntry = 0;
+            if (entry >= vanillaStats.Length || vanillaStats[entry] == null) return;
+            origValues = vanillaStats[entry];
         }
 
-        byte[] orig = originalFiles[targetEntry];
-        
-        SetDiffLabel(L_DiffHP, hp, orig[0]);
-        SetDiffLabel(L_DiffATK, atk, orig[1]);
-        SetDiffLabel(L_DiffDEF, def, orig[2]);
-        SetDiffLabel(L_DiffSPE, spe, orig[3]); // Gen 7 SPE is index 3
-        SetDiffLabel(L_DiffSPA, spa, orig[4]); 
-        SetDiffLabel(L_DiffSPD, spd, orig[5]); 
+        SetDiffLabel(L_DiffHP, hp, origValues[0]);
+        SetDiffLabel(L_DiffATK, atk, origValues[1]);
+        SetDiffLabel(L_DiffDEF, def, origValues[2]);
+        SetDiffLabel(L_DiffSPA, spa, origValues[3]); 
+        SetDiffLabel(L_DiffSPD, spd, origValues[4]); 
+        SetDiffLabel(L_DiffSPE, spe, origValues[5]); 
 
-        int origBST = orig[0] + orig[1] + orig[2] + orig[3] + orig[4] + orig[5];
+        int origBST = origValues.Sum();
         int curBST = hp + atk + def + spa + spd + spe;
         int diff = curBST - origBST;
 
         if (diff > 0)
         {
-            L_StatDiff.Text = $"Vanilla BST Diff: {curBST} ({diff} more than {origBST})";
+            L_StatDiff.Text = $"{prefix} BST Diff: {curBST} ({diff} more than {origBST})";
             L_StatDiff.ForeColor = Color.Green;
         }
         else if (diff < 0)
         {
-            L_StatDiff.Text = $"Vanilla BST Diff: {curBST} ({Math.Abs(diff)} less than {origBST})";
+            L_StatDiff.Text = $"{prefix} BST Diff: {curBST} ({Math.Abs(diff)} less than {origBST})";
             L_StatDiff.ForeColor = Color.Red;
         }
         else
         {
-            L_StatDiff.Text = $"Vanilla BST Diff: {curBST} (0 more than {origBST})";
+            L_StatDiff.Text = $"{prefix} BST Diff: {curBST} (0 more than {origBST})";
             L_StatDiff.ForeColor = Color.Gray; 
         }
     }
@@ -674,8 +707,78 @@ public partial class PersonalEditor7 : Form
         WinFormsUtil.Alert("All Pokémon Hatch Cycles set to 0.");
     }
 
-    private void B_JumpLevelUp_Click(object sender, EventArgs e) { WinFormsUtil.Alert("To jump, Main.cs must pass learnset arrays. We will do this next."); }
-    private void B_JumpEggMoves_Click(object sender, EventArgs e) { WinFormsUtil.Alert("To jump, Main.cs must pass egg move arrays. We will do this next."); }
+    private void B_JumpLevelUp_Click(object sender, EventArgs e)
+    {
+        if (learnsets == null) return;
+        SaveEntry();
+        var editor = new LevelUpEditor7(learnsets) { StartSpecies = entry };
+        editor.ShowDialog();
+        ReadEntry(); // Refresh in case anything changed (though unlikely for stats)
+    }
+    private void B_JumpEggMoves_Click(object sender, EventArgs e)
+    {
+        if (eggmoves == null) return;
+        SaveEntry();
+        var editor = new EggMoveEditor7(eggmoves) { StartSpecies = entry };
+        editor.ShowDialog();
+        ReadEntry();
+    }
+    private void LoadVanillaStats() 
+    {
+        if (files == null || files.Length == 0) return; // Safety check
+
+        vanillaStats = new int[files.Length][];
+        string path = Path.Combine(Application.StartupPath, "vanilla_stats.txt");
+
+        if (File.Exists(path))
+        {
+            // Read from the permanent backup
+            string[] lines = File.ReadAllLines(path);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (i >= files.Length) break;
+                string[] parts = lines[i].Split(',');
+                if (parts.Length == 6)
+                {
+                    vanillaStats[i] = new int[6];
+                    for (int j = 0; j < 6; j++)
+                        int.TryParse(parts[j], out vanillaStats[i][j]);
+                }
+            }
+        }
+        else
+        {
+            try
+            {
+                // First run: Create the permanent backup file using ALL entries in files
+                List<string> lines = new List<string>();
+                for (int i = 0; i < files.Length; i++)
+                {
+                    vanillaStats[i] = new int[6];
+                    
+                    if (i > 0 && files[i] != null && files[i].Length >= 6)
+                    {
+                        vanillaStats[i][0] = files[i][0]; // HP
+                        vanillaStats[i][1] = files[i][1]; // ATK
+                        vanillaStats[i][2] = files[i][2]; // DEF
+                        vanillaStats[i][3] = files[i][4]; // SPA 
+                        vanillaStats[i][4] = files[i][5]; // SPD 
+                        vanillaStats[i][5] = files[i][3]; // SPE 
+                    }
+                    
+                    lines.Add($"{vanillaStats[i][0]},{vanillaStats[i][1]},{vanillaStats[i][2]},{vanillaStats[i][3]},{vanillaStats[i][4]},{vanillaStats[i][5]}");
+                }
+                
+                File.WriteAllLines(path, lines);
+                WinFormsUtil.Alert("Created 'vanilla_stats.txt' successfully!", 
+                                   $"It is located at:\n{path}");
+            }
+            catch (Exception ex)
+            {
+                WinFormsUtil.Alert("Failed to create vanilla_stats.txt.", "Error details:", ex.Message);
+            }
+        }
+    }
     private void Form_Closing(object sender, FormClosingEventArgs e)
     {
         if (entry > -1) SaveEntry();

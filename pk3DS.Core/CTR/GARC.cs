@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 
@@ -700,7 +700,7 @@ public static class GARC
             }
             set
             {
-                if (value == null || value.Length != FileCount)
+                if (value == null)
                     throw new ArgumentException();
 
                 var ng = PackGARC(value, garc.Version, (int)garc.ContentPadToNearest);

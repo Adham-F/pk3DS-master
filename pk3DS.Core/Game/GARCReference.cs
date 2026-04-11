@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 
 namespace pk3DS.Core;
 
@@ -110,6 +110,7 @@ public sealed class GARCReference
         new(015, "megaevo"),
         new(017, "personal"),
         new(019, "item"),
+        new(021, "move_anim"),
 
         new(077, "zonedata"),
         new(091, "worlddata"),
@@ -141,6 +142,7 @@ public sealed class GARCReference
         new(015, "megaevo"),
         new(017, "personal"),
         new(019, "item"),
+        new(021, "move_anim"),
 
         new(077, "zonedata"),
         new(091, "worlddata"),

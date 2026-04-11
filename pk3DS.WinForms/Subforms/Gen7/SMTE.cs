@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -1003,7 +1003,7 @@ public partial class SMTE : Form
         // Default all IVs to 31
         pk.IV_HP = pk.IV_ATK = pk.IV_DEF = pk.IV_SPA = pk.IV_SPD = pk.IV_SPE = 31;
         pk.EV_HP = pk.EV_ATK = pk.EV_DEF = pk.EV_SPA = pk.EV_SPD = pk.EV_SPE = 0;
-        pk.Moves = new int[4];
+        int[] currentMoves = new int[4];
         int moveIndex = 0;
 
         string[] naturesText = Main.Config.GetText(TextName.Natures);
@@ -1034,6 +1034,12 @@ public partial class SMTE : Form
                 string abilityName = line.Replace("Ability:", "").Trim();
                 pk.Ability = Math.Max(0, Array.FindIndex(abilitylist, a => a.Equals(abilityName, StringComparison.OrdinalIgnoreCase)));
             }
+            else if (line.StartsWith("Level:"))
+            {
+                string levelStr = line.Replace("Level:", "").Trim();
+                if (int.TryParse(levelStr, out int lv))
+                    pk.Level = (byte)Math.Min(100, lv);
+            }
             else if (line.StartsWith("EVs:"))
             {
                 int hp = pk.EV_HP, atk = pk.EV_ATK, def = pk.EV_DEF, spa = pk.EV_SPA, spd = pk.EV_SPD, spe = pk.EV_SPE;
@@ -1056,10 +1062,11 @@ public partial class SMTE : Form
                 string moveName = line.Substring(1).Trim();
                 if (moveName.StartsWith("Hidden Power")) moveName = "Hidden Power";
                 
-                pk.Moves[moveIndex] = Math.Max(0, Array.FindIndex(movelist, m => m.Equals(moveName, StringComparison.OrdinalIgnoreCase)));
+                currentMoves[moveIndex] = Math.Max(0, Array.FindIndex(movelist, m => m.Equals(moveName, StringComparison.OrdinalIgnoreCase)));
                 moveIndex++;
             }
         }
+        pk.Moves = currentMoves;
     }
 
     private void ParseStats(string statLine, ref int hp, ref int atk, ref int def, ref int spa, ref int spd, ref int spe)

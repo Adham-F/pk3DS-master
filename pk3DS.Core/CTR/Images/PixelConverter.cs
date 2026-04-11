@@ -49,14 +49,14 @@ public static class PixelConverter
             case XLIMEncoding.L4:
             case XLIMEncoding.L8:
             {
-                r = g = b = (byte)val;
+                r = g = b = (byte)(e == XLIMEncoding.L4 ? (val & 0x0F) * 0x11 : val);
                 break;
             }
             case XLIMEncoding.A4:
             case XLIMEncoding.A8:
             {
                 r = g = b = 0xFF;
-                a = (byte)val;
+                a = (byte)(e == XLIMEncoding.A4 ? val * 0x11 : val);
                 break;
             }
             case XLIMEncoding.HILO8:
@@ -68,14 +68,14 @@ public static class PixelConverter
             }
             case XLIMEncoding.LA4:
             {
-                r = g = b = (byte)(val >> 4);
-                a = (byte)(val & 0x0F);
+                r = g = b = (byte)(0x11 * (val >> 4));
+                a = (byte)(0x11 * (val & 0x0F));
                 break;
             }
             case XLIMEncoding.LA8:
             {
                 r = g = b = (byte)(val >> 8);
-                a = (byte)val;
+                a = (byte)(val & 0xFF);
                 break;
             }
             case XLIMEncoding.RGBX8:

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -51,7 +51,12 @@ public partial class MaisonEditor7 : Form
         CB_Item.Items.AddRange(itemlist);
         for (int i = 0; i < trNames.Length; i++)
             CB_Trainer.Items.Add($"{trNames[i] ?? "UNKNOWN"} - {i:000}");
-        for (int i = 0; i < pkFiles.Length; i++) CB_Pokemon.Items.Add(i.ToString());
+        for (int i = 0; i < pkFiles.Length; i++)
+        {
+            var pk = new Maison7.Pokemon(pkFiles[i]);
+            string name = pk.Species < specieslist.Length ? specieslist[pk.Species] : "???";
+            CB_Pokemon.Items.Add($"{name} - {i:000}");
+        }
 
         CB_Trainer.SelectedIndex = 1;
     }
@@ -267,5 +272,263 @@ public partial class MaisonEditor7 : Form
             return;
 
         File.WriteAllText(sfd.FileName, result, Encoding.Unicode);
+    }
+
+    private void RefreshPokemonName(int idx)
+    {
+        if (idx < 0 || idx >= pkFiles.Length) return;
+        var pk = new Maison7.Pokemon(pkFiles[idx]);
+        string name = pk.Species < specieslist.Length ? specieslist[pk.Species] : "???";
+        CB_Pokemon.Items[idx] = $"{name} - {idx:000}";
+    }
+
+    private void B_ImportPKs_Click(object sender, EventArgs e)
+    {
+        var ofd = new OpenFileDialog { Filter = "Text File|*.txt" };
+        if (ofd.ShowDialog() != DialogResult.OK) return;
+
+        string[] lines = File.ReadAllLines(ofd.FileName);
+        int currentIdx = -1;
+        int updated = 0;
+        dumping = true;
+
+        foreach (string line in lines)
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (line.StartsWith("======"))
+            {
+                continue;
+            }
+            // Parse "123 - SpeciesName" format from header line after ======
+            if (line.Contains(" - ") && !line.StartsWith("Held") && !line.StartsWith("Nature") && !line.StartsWith("Move") && !line.StartsWith("EV") && !line.StartsWith("Form"))
+            {
+                string[] parts = line.Split('-');
+                if (int.TryParse(parts[0].Trim(), out int idx) && idx >= 0 && idx < pkFiles.Length)
+                {
+                    currentIdx = idx;
+                    updated++;
+                }
+                continue;
+            }
+            if (currentIdx < 0 || currentIdx >= pkFiles.Length) continue;
+
+            var pkm = new Maison7.Pokemon(pkFiles[currentIdx]);
+            if (line.StartsWith("Held Item: "))
+            {
+                string itemName = line.Substring(11).Trim();
+                int itemIdx = Array.IndexOf(itemlist, itemName);
+                if (itemIdx >= 0) { pkm.Item = (ushort)itemIdx; pkFiles[currentIdx] = pkm.Write(); }
+            }
+            else if (line.StartsWith("Nature: "))
+            {
+                string natureName = line.Substring(8).Trim();
+                int natIdx = Array.IndexOf(natures, natureName);
+                if (natIdx >= 0) { pkm.Nature = (byte)natIdx; pkFiles[currentIdx] = pkm.Write(); }
+            }
+            else if (line.StartsWith("Move 1: ")) { int mi = Array.IndexOf(movelist, line.Substring(8).Trim()); if (mi >= 0) { pkm.Move1 = mi; pkFiles[currentIdx] = pkm.Write(); } }
+            else if (line.StartsWith("Move 2: ")) { int mi = Array.IndexOf(movelist, line.Substring(8).Trim()); if (mi >= 0) { pkm.Move2 = mi; pkFiles[currentIdx] = pkm.Write(); } }
+            else if (line.StartsWith("Move 3: ")) { int mi = Array.IndexOf(movelist, line.Substring(8).Trim()); if (mi >= 0) { pkm.Move3 = mi; pkFiles[currentIdx] = pkm.Write(); } }
+            else if (line.StartsWith("Move 4: ")) { int mi = Array.IndexOf(movelist, line.Substring(8).Trim()); if (mi >= 0) { pkm.Move4 = mi; pkFiles[currentIdx] = pkm.Write(); } }
+        }
+
+        dumping = false;
+        if (pkEntry >= 0) GetPokemon();
+        WinFormsUtil.Alert($"Imported {updated} Pokémon entries!");
+    }
+
+    private Maison7.Pokemon ParseShowdownSet(string text)
+    {
+        var lines = text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length == 0) return null;
+
+        var pkm = new Maison7.Pokemon(new byte[16]);
+
+        // Line 1: "Species @ Item" or "Nickname (Species) @ Item"
+        string line1 = lines[0];
+        string speciesPart = line1;
+        string itemPart = null;
+
+        int atIdx = line1.IndexOf(" @ ");
+        if (atIdx >= 0)
+        {
+            speciesPart = line1.Substring(0, atIdx).Trim();
+            itemPart = line1.Substring(atIdx + 3).Trim();
+        }
+
+        // Handle "Nickname (Species)" format
+        int parenOpen = speciesPart.IndexOf('(');
+        int parenClose = speciesPart.IndexOf(')');
+        if (parenOpen >= 0 && parenClose > parenOpen)
+            speciesPart = speciesPart.Substring(parenOpen + 1, parenClose - parenOpen - 1).Trim();
+
+        // Handle form suffixes like "Rotom-Wash"
+        string formName = null;
+        int dashIdx = speciesPart.IndexOf('-');
+        if (dashIdx > 0)
+        {
+            formName = speciesPart.Substring(dashIdx + 1);
+            speciesPart = speciesPart.Substring(0, dashIdx);
+        }
+
+        int speciesIdx = Array.IndexOf(specieslist, speciesPart);
+        if (speciesIdx < 0) return null;
+        pkm.Species = (ushort)speciesIdx;
+
+        if (itemPart != null)
+        {
+            int itemIdx = Array.IndexOf(itemlist, itemPart);
+            if (itemIdx >= 0) pkm.Item = (ushort)itemIdx;
+        }
+
+        int moveSlot = 0;
+        foreach (string line in lines.Skip(1))
+        {
+            string trimmed = line.Trim();
+            if (trimmed.StartsWith("- "))
+            {
+                string moveName = trimmed.Substring(2).Trim();
+                int moveIdx = Array.IndexOf(movelist, moveName);
+                if (moveIdx >= 0 && moveSlot < 4)
+                    pkm.Moves[moveSlot++] = (ushort)moveIdx;
+            }
+            else if (trimmed.EndsWith("Nature"))
+            {
+                string natureName = trimmed.Split(' ')[0];
+                int natIdx = Array.IndexOf(natures, natureName);
+                if (natIdx >= 0) pkm.Nature = (byte)natIdx;
+            }
+            else if (trimmed.StartsWith("EVs:"))
+            {
+                // Parse "EVs: 252 HP / 252 Atk / 4 Spe"
+                string[] evParts = trimmed.Substring(4).Split('/');
+                foreach (string part in evParts)
+                {
+                    string p = part.Trim();
+                    if (!p.Contains("252")) continue; // Only check 252 EVs
+                    if (p.Contains("HP")) pkm.HP = true;
+                    else if (p.Contains("Atk") && !p.Contains("SpA")) pkm.ATK = true;
+                    else if (p.Contains("Def") && !p.Contains("SpD")) pkm.DEF = true;
+                    else if (p.Contains("SpA") || p.Contains("Sp.Atk")) pkm.SPA = true;
+                    else if (p.Contains("SpD") || p.Contains("Sp.Def")) pkm.SPD = true;
+                    else if (p.Contains("Spe")) pkm.SPE = true;
+                }
+            }
+        }
+        return pkm;
+    }
+
+    private void B_ShowdownImport_Click(object sender, EventArgs e)
+    {
+        string clipText = Clipboard.GetText();
+        if (string.IsNullOrWhiteSpace(clipText))
+        {
+            WinFormsUtil.Alert("No text found in clipboard.", "Copy a Showdown set to your clipboard first.");
+            return;
+        }
+
+        var pkm = ParseShowdownSet(clipText);
+        if (pkm == null)
+        {
+            WinFormsUtil.Alert("Could not parse the Showdown set.", "Make sure the species name matches the game's species list.");
+            return;
+        }
+
+        if (pkEntry < 0) { WinFormsUtil.Alert("Select a Pokémon entry first."); return; }
+
+        pkFiles[pkEntry] = pkm.Write();
+        GetPokemon();
+        RefreshPokemonName(pkEntry);
+        WinFormsUtil.Alert($"Imported {specieslist[pkm.Species]} to entry {pkEntry}!");
+    }
+
+    private void B_ShowdownBox_Click(object sender, EventArgs e)
+    {
+        string clipText = Clipboard.GetText();
+        if (string.IsNullOrWhiteSpace(clipText))
+        {
+            WinFormsUtil.Alert("No text found in clipboard.", "Copy up to 30 Showdown sets to your clipboard first (separated by blank lines).");
+            return;
+        }
+
+        // Split sets by double newline
+        string[] sets = System.Text.RegularExpressions.Regex.Split(clipText.Trim(), @"\n\s*\n");
+        int startIdx = pkEntry >= 0 ? pkEntry : 0;
+        int imported = 0;
+        List<ushort> addedChoices = [];
+
+        for (int i = 0; i < Math.Min(sets.Length, 30); i++)
+        {
+            int targetIdx = startIdx + i;
+            if (targetIdx >= pkFiles.Length) break;
+
+            var pkm = ParseShowdownSet(sets[i]);
+            if (pkm == null) continue;
+
+            pkFiles[targetIdx] = pkm.Write();
+            RefreshPokemonName(targetIdx);
+            addedChoices.Add((ushort)targetIdx);
+            imported++;
+        }
+
+        // Auto-assign imported entries to the current trainer
+        if (trEntry >= 0 && addedChoices.Count > 0)
+        {
+            SetTrainer();
+            foreach (ushort idx in addedChoices)
+            {
+                bool exists = false;
+                for (int i = 0; i < LB_Choices.Items.Count; i++)
+                    if (Convert.ToUInt16(LB_Choices.Items[i].ToString()) == idx) { exists = true; break; }
+                if (!exists) LB_Choices.Items.Add(idx.ToString());
+            }
+        }
+
+        if (pkEntry >= 0) GetPokemon();
+        WinFormsUtil.Alert($"Imported {imported} Showdown sets starting at entry {startIdx}!");
+    }
+
+    private void B_SetPokemonList_Click(object sender, EventArgs e)
+    {
+        if (trEntry < 0) { WinFormsUtil.Alert("Select a trainer first."); return; }
+
+        // Prompt user for a comma-separated list of species names
+        string input = Microsoft.VisualBasic.Interaction.InputBox(
+            "Enter Pokémon species names separated by commas.\nAll entries matching those species will be assigned to this trainer.\n\nExample: Pikachu, Charizard, Mewtwo",
+            "Set Pokémon List",
+            "");
+
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        string[] requestedSpecies = input.Split(',');
+        List<ushort> matchingEntries = [];
+
+        foreach (string sp in requestedSpecies)
+        {
+            string trimmed = sp.Trim();
+            int spIdx = Array.IndexOf(specieslist, trimmed);
+            if (spIdx < 0) continue;
+
+            // Find all pkFiles entries with this species
+            for (int i = 0; i < pkFiles.Length; i++)
+            {
+                var pk = new Maison7.Pokemon(pkFiles[i]);
+                if (pk.Species == spIdx && !matchingEntries.Contains((ushort)i))
+                    matchingEntries.Add((ushort)i);
+            }
+        }
+
+        if (matchingEntries.Count == 0)
+        {
+            WinFormsUtil.Alert("No Pokémon entries found matching the specified species.");
+            return;
+        }
+
+        matchingEntries.Sort();
+        SetTrainer();
+        LB_Choices.Items.Clear();
+        foreach (ushort idx in matchingEntries)
+            LB_Choices.Items.Add(idx.ToString());
+
+        WinFormsUtil.Alert($"Set {matchingEntries.Count} Pokémon entries for this trainer!");
     }
 }

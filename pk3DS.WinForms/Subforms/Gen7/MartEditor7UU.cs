@@ -1,4 +1,5 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
+using pk3DS.Core.CTR;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,7 +10,22 @@ namespace pk3DS.WinForms;
 
 public partial class MartEditor7UU : Form
 {
-    private readonly string CROPath = Path.Combine(Main.RomFSPath, "Shop.cro");
+    private string CROPath { get { return Path.Combine(Main.RomFSPath, "Shop.cro"); } }
+    private byte[] data;
+    private byte[] len_Items;
+    private byte[] len_BPItem;
+
+    private int ofs_Counts = -1;
+    private int ofs_Items = -1;
+    private int ofs_BP = -1;
+    private int ofs_Tutors = -1;
+    private int cachedCodeOfs = -1;
+
+    private string path_Counts => Path.Combine(Main.RomFSPath, "mart_counts_ofs.txt");
+    private string path_Items => Path.Combine(Main.RomFSPath, "mart_items_ofs.txt");
+    private string path_BP => Path.Combine(Main.RomFSPath, "mart_bp_ofs.txt");
+    private string path_Tutors => Path.Combine(Main.RomFSPath, "mart_tutor_ofs.txt");
+    private string codeOfsFile { get { return Path.Combine(Main.ExeFSPath, "mart_code_offset.txt"); } }
 
     public MartEditor7UU()
     {
@@ -21,9 +37,10 @@ public partial class MartEditor7UU : Form
         InitializeComponent();
 
         data = File.ReadAllBytes(CROPath);
-        //len_BPTutor = data.Skip(0x52D2).Take(4).ToArray();
-        len_BPItem = data.Skip(0x52D2 + 4).Take(7).ToArray();
-        len_Items = data.Skip(0x52D2 + 4 + 7).TakeWhile(z => (sbyte)z > 0).ToArray();
+        LoadOffsets();
+        
+        len_BPItem = data.Skip(ofs_Counts + 4).Take(7).ToArray();
+        len_Items = data.Skip(ofs_Counts + 4 + 7).Take(28).ToArray(); 
 
         itemlist[0] = "";
         SetupDGV();
@@ -33,16 +50,60 @@ public partial class MartEditor7UU : Form
             CB_LocationBPItem.SelectedIndex = 0;
     }
 
-    private const int ofs_Item = 0x50BC;
-    private const int ofs_BPItem = 0x52FA;
-    //private const int ofs_BPTutor = 0x54DE;
-    private readonly byte[] len_Items;
-    private readonly byte[] len_BPItem;
-    //private readonly byte[] len_BPTutor;
+    private void LoadOffsets()
+    {
+        if (File.Exists(path_Counts)) int.TryParse(File.ReadAllText(path_Counts), out ofs_Counts);
+        if (File.Exists(path_Items)) int.TryParse(File.ReadAllText(path_Items), out ofs_Items);
+        if (File.Exists(path_BP)) int.TryParse(File.ReadAllText(path_BP), out ofs_BP);
+        if (File.Exists(path_Tutors)) int.TryParse(File.ReadAllText(path_Tutors), out ofs_Tutors);
 
+        bool scanNeeded = ofs_Counts <= 0 || ofs_Items <= 0 || ofs_BP <= 0 || ofs_Tutors <= 0;
+        if (scanNeeded) ScanForSignatures();
+    }
+
+    private void ScanForSignatures()
+    {
+        // 1. Counts Table Signature: [0C, 0C, 0C, 0C, 0E, 10, 0B, 0C, 0C, 15, 0A, 09] (USUM Defaults)
+        byte[] sig_counts = [0x0C, 0x0C, 0x0C, 0x0C, 0x0E, 0x10, 0x0B, 0x0C, 0x0C, 0x15, 0x0A, 0x09];
+        int idx_c = Util.IndexOfBytes(data, sig_counts, 0, data.Length - sig_counts.Length);
+        if (idx_c > 0) ofs_Counts = idx_c; else ofs_Counts = 0x52D2;
+
+        // 2. Mart Item Table Signature: [Poke ball, Great Ball, Potion, Super Potion, Antidote]
+        byte[] sig_items = [0x01, 0x00, 0x02, 0x00, 0x11, 0x00, 0x12, 0x00, 0x14, 0x00];
+        int idx_i = Util.IndexOfBytes(data, sig_items, 0, data.Length - sig_items.Length);
+        if (idx_i > 0) ofs_Items = idx_i; else ofs_Items = 0x50BC;
+
+        // 3. BP Item Table Signature: [Rare Candy, PP Up, Max Revive, Max Elixir, HP Up]
+        byte[] sig_bp = [0x32, 0x00, 0x31, 0x00, 0x0F, 0x00, 0x11, 0x00, 0x2D, 0x00];
+        int idx_b = Util.IndexOfBytes(data, sig_bp, 0, data.Length - sig_bp.Length);
+        if (idx_b > 0) ofs_BP = idx_b; else ofs_BP = 0x52FA;
+
+        // 4. Tutor Table Signature: [Gyro Ball, 12, Gyro Ball, 12] (Wait, repeating Gyro ball in data?)
+        // Let's use Gyro Ball (0x1C1) and 12 BP (0x0C)
+        byte[] sig_tutor = [0xC1, 0x01, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00];
+        int idx_t = Util.IndexOfBytes(data, sig_tutor, 0, data.Length - sig_tutor.Length);
+        if (idx_t > 0) ofs_Tutors = idx_t; else ofs_Tutors = 0x54DE;
+
+        SaveOffsets();
+    }
+
+    private void SaveOffsets()
+    {
+        File.WriteAllText(path_Counts, ofs_Counts.ToString());
+        File.WriteAllText(path_Items, ofs_Items.ToString());
+        File.WriteAllText(path_BP, ofs_BP.ToString());
+        File.WriteAllText(path_Tutors, ofs_Tutors.ToString());
+    }
+
+    private void UpdateOffsets(int insertionPoint, int change)
+    {
+        if (ofs_Counts >= insertionPoint) ofs_Counts += change;
+        if (ofs_Items >= insertionPoint) ofs_Items += change;
+        if (ofs_BP >= insertionPoint) ofs_BP += change;
+        if (ofs_Tutors >= insertionPoint) ofs_Tutors += change;
+        SaveOffsets();
+    }
     private readonly string[] itemlist = Main.Config.GetText(TextName.ItemNames);
-    //private readonly string[] movelist = Main.Config.GetText(TextName.MoveNames);
-    private readonly byte[] data;
 
     #region Tables
     private readonly string[] locations =
@@ -87,6 +148,7 @@ public partial class MartEditor7UU : Form
         if (entryItem > -1) SetListItem();
         if (entryBPItem > -1) SetListBPItem();
         File.WriteAllBytes(CROPath, data);
+        SyncMartsToCodeBin();
         Close();
     }
 
@@ -120,7 +182,7 @@ public partial class MartEditor7UU : Form
         dgv.Rows.Clear();
         int count = len_Items[entryItem];
         dgv.Rows.Add(count);
-        var ofs = ofs_Item + (len_Items.Take(entryItem).Sum(z => z) * 2);
+        var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
         for (int i = 0; i < count; i++)
         {
             dgv.Rows[i].Cells[0].Value = i.ToString();
@@ -133,7 +195,7 @@ public partial class MartEditor7UU : Form
         dgvbp.Rows.Clear();
         int count = len_BPItem[entryBPItem];
         dgvbp.Rows.Add(count);
-        var ofs = ofs_BPItem + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
+        var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
         for (int i = 0; i < count; i++)
         {
             dgvbp.Rows[i].Cells[0].Value = i.ToString();
@@ -145,7 +207,7 @@ public partial class MartEditor7UU : Form
     private void SetListItem()
     {
         int count = dgv.Rows.Count;
-        var ofs = ofs_Item + (len_Items.Take(entryItem).Sum(z => z) * 2);
+        var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
         for (int i = 0; i < count; i++)
             Array.Copy(BitConverter.GetBytes((ushort)Array.IndexOf(itemlist, dgv.Rows[i].Cells[1].Value)), 0, data, ofs + (2 * i), 2);
     }
@@ -153,7 +215,7 @@ public partial class MartEditor7UU : Form
     private void SetListBPItem()
     {
         int count = dgvbp.Rows.Count;
-        var ofs = ofs_BPItem + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
+        var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
         for (int i = 0; i < count; i++)
         {
             int item = Array.IndexOf(itemlist, dgvbp.Rows[i].Cells[1].Value);
@@ -230,6 +292,8 @@ public partial class MartEditor7UU : Form
         WinFormsUtil.Alert("Randomized!");
     }
 
+    internal static readonly HashSet<int> XItems = [055, 056, 057, 058, 059, 060, 061, 062];
+
     /// <summary>
     /// Just TMs & HMs; don't want these to be changed; if changed, they are not available elsewhere ingame.
     /// </summary>
@@ -243,8 +307,94 @@ public partial class MartEditor7UU : Form
         692, 693, 694, 701, 737,
     ];
 
-    /// <summary>
-    /// All X Items usable in Generations 6 and 7. Speedrunners utilize these Items a lot, so make sure they are still available.
-    /// </summary>
-    internal static readonly HashSet<int> XItems = [055, 056, 057, 058, 059, 060, 061, 062];
+    private void B_Add_Click(object sender, EventArgs e)
+    {
+        bool isBP = tabControl1.SelectedIndex == 1;
+        int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
+        if (entry < 0) return;
+
+        if (isBP) SetListBPItem(); else SetListItem();
+
+        int itemSize = isBP ? 4 : 2;
+        int baseOfs = isBP ? ofs_BP : ofs_Items;
+        byte[] counts = isBP ? len_BPItem : len_Items;
+        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 4 + 7);
+
+        int insertionPoint = baseOfs + (counts.Take(entry + 1).Sum(z => z) * itemSize);
+        data = CROUtil.ExpandSegment(data, 'd', itemSize, insertionPoint);
+
+        // Update counts in the binary
+        counts[entry]++;
+        data[countOfs + entry] = counts[entry];
+
+        // Recalculate offsets after expansion!
+        UpdateOffsets(insertionPoint, itemSize);
+
+        if (isBP) GetListBPItem(); else GetListItem();
+        WinFormsUtil.Alert("Item slot added. Data shifted.");
+    }
+
+    private void B_Del_Click(object sender, EventArgs e)
+    {
+        bool isBP = tabControl1.SelectedIndex == 1;
+        int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
+        if (entry < 0) return;
+
+        byte[] counts = isBP ? len_BPItem : len_Items;
+        if (counts[entry] <= 1)
+        {
+            WinFormsUtil.Error("Cannot delete the last item in a shop.");
+            return;
+        }
+
+        if (isBP) SetListBPItem(); else SetListItem();
+
+        int itemSize = isBP ? 4 : 2;
+        int baseOfs = isBP ? ofs_BP : ofs_Items;
+        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 4 + 7);
+
+        int deletionPoint = baseOfs + (counts.Take(entry + 1).Sum(z => z) * itemSize) - itemSize;
+        data = CROUtil.ExpandSegment(data, 'd', -itemSize, deletionPoint);
+
+        counts[entry]--;
+        data[countOfs + entry] = counts[entry];
+        
+        // Recalculate offsets after deletion!
+        UpdateOffsets(deletionPoint, -itemSize);
+
+        if (isBP) GetListBPItem(); else GetListItem();
+        WinFormsUtil.Alert("Item removed. Data shifted.");
+    }
+
+    private void SyncMartsToCodeBin()
+    {
+        string binName = File.Exists(Path.Combine(Main.ExeFSPath, ".code.bin")) ? ".code.bin" : "code.bin";
+        string codePath = Path.Combine(Main.ExeFSPath, binName);
+        if (!File.Exists(codePath)) return;
+
+        byte[] codeBin = File.ReadAllBytes(codePath);
+        if (File.Exists(codeOfsFile))
+            int.TryParse(File.ReadAllText(codeOfsFile), out cachedCodeOfs);
+
+        if (cachedCodeOfs <= 0)
+        {
+            // Search for the 2-byte spaced trial count pattern for USUM: [12, 0, 12, 0, 12, 0, 12, 0]
+            // These correspond to the first 4 shops which all have 12 items by default in USUM.
+            byte[] pat = [0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00];
+            int idx = Util.IndexOfBytes(codeBin, pat, 0, codeBin.Length - pat.Length);
+            if (idx >= 0)
+            {
+                cachedCodeOfs = idx;
+                File.WriteAllText(codeOfsFile, cachedCodeOfs.ToString());
+            }
+        }
+
+        if (cachedCodeOfs > 0)
+        {
+            for (int i = 0; i < len_Items.Length; i++)
+                codeBin[cachedCodeOfs + i * 2] = len_Items[i];
+            
+            File.WriteAllBytes(codePath, codeBin);
+        }
+    }
 }

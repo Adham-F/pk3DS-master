@@ -1,4 +1,5 @@
 using pk3DS.Core;
+using pk3DS.Core.Modding;
 using System;
 using System.IO;
 using System.Linq;
@@ -10,13 +11,10 @@ public partial class TutorEditor7 : Form
 {
     private readonly string CROPath = Path.Combine(Main.RomFSPath, "Shop.cro");
 
-    // The signature string "_on_off\xFF" that precedes the tutor move table in code.bin
-    private static readonly byte[] CodeBinTutorSignature = new byte[] 
-    { 
-        0x5F, 0x6F, 0x6E, 0x5F, 0x6F, 0x66, 0x66, 0xFF
-    };
-
-    private int cachedTutorOffset = -1;
+    private byte[] data;
+    private int ofs_counts;
+    private int ofs_data;
+    private byte[] len_BPTutor;
 
     public TutorEditor7()
     {
@@ -24,22 +22,38 @@ public partial class TutorEditor7 : Form
         {
             WinFormsUtil.Error("CRO does not exist! Closing.", CROPath);
             Close();
+            return;
         }
         InitializeComponent();
 
         data = File.ReadAllBytes(CROPath);
-        len_BPTutor = data.Skip(0x52D2).Take(4).ToArray();
+        LoadShopOffsets();
 
         SetupDGV();
         CB_LocationBPMove.Items.AddRange(locationsTutor);
         CB_LocationBPMove.SelectedIndex = 0;
     }
 
-    private const int ofs_BPTutor = 0x54DE;
-    private readonly byte[] len_BPTutor;
+    private void LoadShopOffsets()
+    {
+        // Verified USUM v1.0 hard-locked offsets
+        // Persistent Overrides (Universal Engine tracker)
+        ofs_counts = pk3DS.Core.Modding.ProjectState.Instance.GetOffset("TutorCountsOffset", 0x52D2);
+        ofs_data = pk3DS.Core.Modding.ProjectState.Instance.GetOffset("TutorDataOffset", 0x54DE);
+
+        len_BPTutor = data.Skip(ofs_counts).Take(4).ToArray();
+        Text = $"Tutor Editor (Anchor: 0x{ofs_data:X})";
+    }
+
+    private void SaveShopOffsets()
+    {
+        pk3DS.Core.Modding.ProjectState.Instance.SetOffset("TutorCountsOffset", ofs_counts);
+        pk3DS.Core.Modding.ProjectState.Instance.SetOffset("TutorDataOffset", ofs_data);
+    }
+
+    private int ofs_BPTutor => ofs_data;
 
     private readonly string[] movelist = Main.Config.GetText(TextName.MoveNames);
-    private readonly byte[] data;
 
     private readonly string[] locationsTutor =
     [
@@ -52,83 +66,48 @@ public partial class TutorEditor7 : Form
     private void B_Save_Click(object sender, EventArgs e)
     {
         if (entryBPMove > -1) SetListBPMove();
-
-        // 1. Compile the synchronized array of all current tutor moves across all beaches
-        int totalMoves = len_BPTutor.Sum(z => z);
-        ushort[] currentTutorMoves = new ushort[totalMoves];
-        int ofs = ofs_BPTutor;
-        for (int i = 0; i < totalMoves; i++)
-        {
-            currentTutorMoves[i] = BitConverter.ToUInt16(data, ofs + (4 * i));
-        }
-
-        // 2. Push the array to code.bin to align with Personal bitflags
-        SyncTutorsToCodeBin(currentTutorMoves);
-
-        // 3. Save the Shop.cro to update the in-game NPC menus
+        SyncTutorsToCodeBin();
         File.WriteAllBytes(CROPath, data);
+        SaveShopOffsets();
         Close();
     }
 
-    private void SyncTutorsToCodeBin(ushort[] currentTutorMoves)
+    private void SyncTutorsToCodeBin()
     {
-        // Handle variations in unpacker naming conventions using ExeFSPath
+        if (string.IsNullOrEmpty(Main.ExeFSPath)) return;
         string binName = File.Exists(Path.Combine(Main.ExeFSPath, ".code.bin")) ? ".code.bin" : "code.bin";
         string fullCodePath = Path.Combine(Main.ExeFSPath, binName);
         if (!File.Exists(fullCodePath)) return;
 
         byte[] codeBin = File.ReadAllBytes(fullCodePath);
-        string offsetFile = Path.Combine(Main.ExeFSPath, "tutor_offset.txt");
+        int offset = ProjectState.Instance.TutorCodeOffset;
 
-        // Load cached offset to survive app restarts and overwritten vanilla patterns
-        if (cachedTutorOffset <= 0 && File.Exists(offsetFile))
+        if (offset <= 0)
         {
-            if (int.TryParse(File.ReadAllText(offsetFile), out int savedOfs))
-                cachedTutorOffset = savedOfs;
-        }
-
-        // Scan for the '_on_off\xFF' signature. The tutor table starts right after it.
-        if (cachedTutorOffset <= 0)
-        {
-            int sigIdx = -1;
-            for (int i = 0; i < codeBin.Length - CodeBinTutorSignature.Length; i++)
-            {
-                bool match = true;
-                for (int j = 0; j < CodeBinTutorSignature.Length; j++)
-                {
-                    if (codeBin[i + j] != CodeBinTutorSignature[j])
-                    {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match) 
-                {
-                    sigIdx = i;
-                    break;
-                }
-            }
+            // Scan for marker: _on_off\xFF
+            byte[] sig = { 0x5F, 0x6F, 0x6E, 0x5F, 0x6F, 0x66, 0x66, 0xFF };
+            int sigIdx = pk3DS.Core.Util.IndexOfBytes(codeBin, sig, 0, codeBin.Length);
             if (sigIdx >= 0)
             {
-                cachedTutorOffset = sigIdx + CodeBinTutorSignature.Length;
-                File.WriteAllText(offsetFile, cachedTutorOffset.ToString());
+                offset = sigIdx + sig.Length; 
+                ProjectState.Instance.TutorCodeOffset = offset;
+                ProjectState.Instance.Save();
             }
         }
 
-        if (cachedTutorOffset > 0)
+        if (offset > 0)
         {
-            // Write tutor moves at 2-byte stride (plain ushort array in code.bin)
-            for (int i = 0; i < currentTutorMoves.Length; i++)
+            int totalMoves = data[ofs_counts] + data[ofs_counts + 1] + data[ofs_counts + 2] + data[ofs_counts + 3];
+            for (int i = 0; i < totalMoves; i++)
             {
-                byte[] moveBytes = BitConverter.GetBytes(currentTutorMoves[i]);
-                codeBin[cachedTutorOffset + (i * 2)] = moveBytes[0];
-                codeBin[cachedTutorOffset + (i * 2) + 1] = moveBytes[1];
+                int srcOfs = ofs_data + (i * 4);
+                int destOfs = offset + (i * 2);
+                if (destOfs + 1 >= codeBin.Length) break;
+                
+                codeBin[destOfs] = data[srcOfs];
+                codeBin[destOfs + 1] = data[srcOfs + 1];
             }
             File.WriteAllBytes(fullCodePath, codeBin);
-        }
-        else
-        {
-            WinFormsUtil.Alert("Failed to locate Tutor Table in code.bin.", "Ensure code.bin contains the '_on_off' marker string.");
         }
     }
 
@@ -136,7 +115,7 @@ public partial class TutorEditor7 : Form
 
     private void SetupDGV()
     {
-        dgvmvMove.Items.AddRange(movelist); 
+        dgvmvMove.Items.AddRange(movelist); // add only the Names
     }
 
     private int entryBPMove = -1;
@@ -157,23 +136,52 @@ public partial class TutorEditor7 : Form
         for (int i = 0; i < count; i++)
         {
             dgvmv.Rows[i].Cells[0].Value = i.ToString();
-            dgvmv.Rows[i].Cells[1].Value = movelist[BitConverter.ToUInt16(data, ofs + (4 * i))];
-            dgvmv.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, ofs + (4 * i) + 2).ToString();
+            int m_ofs = ofs + (4 * i);
+            int p_ofs = ofs + (4 * i) + 2;
+
+            int moveID = BitConverter.ToUInt16(data, m_ofs);
+            if (moveID >= movelist.Length) moveID = 0;
+
+            dgvmv.Rows[i].Cells[1].Value = movelist[moveID];
+            dgvmv.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, p_ofs).ToString();
         }
     }
 
     private void SetListBPMove()
     {
         int count = dgvmv.Rows.Count;
+        if (count != len_BPTutor[entryBPMove])
+        {
+            // Expansion triggered!
+            // Shift whole table to end of .data segment if it's the first time
+            if (ofs_data < 0x8000) // If still in original region 
+            {
+                int oldOfs = ofs_data;
+                int oldDataLen = len_BPTutor.Sum(z => z) * 4;
+                int newDataLen = oldDataLen + 0x1000;
+                int newOfs = data.Length;
+                
+                data = pk3DS.Core.CTR.CROUtil.ExpandSegment(data, 'd', newDataLen);
+                Array.Copy(data, oldOfs, data, newOfs, oldDataLen);
+                ofs_data = newOfs;
+            }
+        }
+
         var ofs = ofs_BPTutor + (len_BPTutor.Take(entryBPMove).Sum(z => z) * 4);
         for (int i = 0; i < count; i++)
         {
             int item = Array.IndexOf(movelist, dgvmv.Rows[i].Cells[1].Value);
-            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, ofs + (4 * i), 2);
-            string p = dgvmv.Rows[i].Cells[2].Value.ToString();
-            if (int.TryParse(p, out var price))
-                Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, ofs + (4 * i) + 2, 2);
+            int price = 4; int.TryParse(dgvmv.Rows[i].Cells[2].Value.ToString(), out price);
+
+            int m_ofs = ofs + (4 * i);
+            int p_ofs = ofs + (4 * i) + 2;
+
+            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, m_ofs, 2);
+            Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, p_ofs, 2);
         }
+        
+        data[ofs_counts + entryBPMove] = (byte)count;
+        len_BPTutor[entryBPMove] = (byte)count;
     }
 
     private void B_Randomize_Click(object sender, EventArgs e)
@@ -181,104 +189,34 @@ public partial class TutorEditor7 : Form
         WinFormsUtil.Alert("Not currently implemented.");
     }
 
-    public static int[] GetUSUMTutors(string croPath, int[] fallback)
+    private void B_AddMove_Click(object sender, EventArgs e)
     {
-        if (!File.Exists(croPath)) return fallback;
-        try
-        {
-            byte[] fileData = File.ReadAllBytes(croPath);
-            byte[] tutorLengths = fileData.Skip(0x52D2).Take(4).ToArray();
-            int totalMoves = tutorLengths.Sum(z => z);
-            
-            if (totalMoves == 0) return fallback;
-            
-            int[] tutors = new int[totalMoves];
-            int ofs = 0x54DE; 
-            for (int i = 0; i < totalMoves; i++)
-            {
-                tutors[i] = BitConverter.ToUInt16(fileData, ofs + (4 * i));
-            }
-            return tutors;
-        }
-        catch 
-        { 
-            return fallback; 
-        }
+        if (entryBPMove < 0) return;
+        dgvmv.Rows.Add(1);
+        int entries = dgvmv.Rows.Count;
+        dgvmv.Rows[entries - 1].Cells[0].Value = (entries - 1).ToString();
+        dgvmv.Rows[entries - 1].Cells[1].Value = movelist[0];
+        dgvmv.Rows[entries - 1].Cells[2].Value = "4";
     }
 
-    private void B_ExportTxt_Click(object sender, EventArgs e)
+    private void B_DelMove_Click(object sender, EventArgs e)
     {
-        if (entryBPMove > -1) SetListBPMove();
-
-        var sfd = new SaveFileDialog { FileName = "Tutors.txt", Filter = "Text File|*.txt" };
-        if (sfd.ShowDialog() != DialogResult.OK) return;
-
-        var lines = new System.Collections.Generic.List<string>();
-        for (int loc = 0; loc < locationsTutor.Length; loc++)
-        {
-            lines.Add($"=== {locationsTutor[loc]} ===");
-            int count = len_BPTutor[loc];
-            var ofs = ofs_BPTutor + (len_BPTutor.Take(loc).Sum(z => z) * 4);
-            for (int i = 0; i < count; i++)
-            {
-                string moveName = movelist[BitConverter.ToUInt16(data, ofs + (4 * i))];
-                int price = BitConverter.ToUInt16(data, ofs + (4 * i) + 2);
-                lines.Add($"{i}: {moveName} | {price}");
-            }
-            lines.Add("");
-        }
-        File.WriteAllLines(sfd.FileName, lines);
-        WinFormsUtil.Alert("Tutor data exported!");
+        if (entryBPMove < 0 || dgvmv.Rows.Count == 0) return;
+        dgvmv.Rows.RemoveAt(dgvmv.Rows.Count - 1);
     }
 
-    private void B_ImportTxt_Click(object sender, EventArgs e)
+    public static (int[] moves, int[] lengths) GetUSUMTutorData(string croPath, int[] defaultMoves)
     {
-        var ofd = new OpenFileDialog { Filter = "Text File|*.txt" };
-        if (ofd.ShowDialog() != DialogResult.OK) return;
+        if (!File.Exists(croPath)) return (defaultMoves, [15, 17, 17, 15]);
+        byte[] d = File.ReadAllBytes(croPath);
+        
+        // Use verified USUM v1.0 counts offset
+        int c_ofs = 0x52D2;
 
-        string[] lines = File.ReadAllLines(ofd.FileName);
-        int currentLoc = -1;
-        int currentOfs = 0;
-        int currentCount = 0;
-        int updated = 0;
+        string cnt_txt = Path.Combine(Path.GetDirectoryName(croPath), "tutor_counts_ofs.txt");
+        if (File.Exists(cnt_txt)) int.TryParse(File.ReadAllText(cnt_txt), out c_ofs);
 
-        foreach (string line in lines)
-        {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            if (line.StartsWith("==="))
-            {
-                string locName = line.Trim('=', ' ');
-                currentLoc = -1;
-                for (int i = 0; i < locationsTutor.Length; i++)
-                    if (locationsTutor[i] == locName) { currentLoc = i; break; }
-                if (currentLoc >= 0)
-                {
-                    currentOfs = ofs_BPTutor + (len_BPTutor.Take(currentLoc).Sum(z => z) * 4);
-                    currentCount = len_BPTutor[currentLoc];
-                }
-                continue;
-            }
-
-            if (currentLoc < 0) continue;
-            int colonIdx = line.IndexOf(':');
-            if (colonIdx < 0) continue;
-            if (!int.TryParse(line.Substring(0, colonIdx).Trim(), out int idx)) continue;
-            if (idx < 0 || idx >= currentCount) continue;
-
-            string rest = line.Substring(colonIdx + 1).Trim();
-            string[] parts = rest.Split('|');
-            string moveName = parts[0].Trim();
-            int moveIdx = Array.IndexOf(movelist, moveName);
-            if (moveIdx < 0) continue;
-
-            Array.Copy(BitConverter.GetBytes((ushort)moveIdx), 0, data, currentOfs + (4 * idx), 2);
-            if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int price))
-                Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, currentOfs + (4 * idx) + 2, 2);
-            updated++;
-        }
-
-        if (entryBPMove > -1) GetListBPMove();
-        WinFormsUtil.Alert($"Imported {updated} tutor entries!");
+        int[] lengths = d.Skip(c_ofs).Take(4).Select(b => (int)b).ToArray();
+        return (defaultMoves, lengths);
     }
 }

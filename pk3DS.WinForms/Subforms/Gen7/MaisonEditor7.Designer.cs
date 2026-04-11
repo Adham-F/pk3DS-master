@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class MaisonEditor7
 {
@@ -61,6 +61,11 @@ partial class MaisonEditor7
         this.CB_Species = new System.Windows.Forms.ComboBox();
         this.B_DumpPKs = new System.Windows.Forms.Button();
         this.DumpTRs = new System.Windows.Forms.Button();
+        this.B_ImportPKs = new System.Windows.Forms.Button();
+        this.B_ShowdownImport = new System.Windows.Forms.Button();
+        this.B_ShowdownBox = new System.Windows.Forms.Button();
+        this.B_SetPokemonList = new System.Windows.Forms.Button();
+        this.B_View = new System.Windows.Forms.Button();
         this.GB_Trainer.SuspendLayout();
         this.GB_Pokemon.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)(this.NUD_Form)).BeginInit();
@@ -422,11 +427,65 @@ partial class MaisonEditor7
         this.DumpTRs.UseVisualStyleBackColor = true;
         this.DumpTRs.Click += new System.EventHandler(this.DumpTRs_Click);
         // 
+        // B_ImportPKs
+        // 
+        this.B_ImportPKs.Location = new System.Drawing.Point(575, 7);
+        this.B_ImportPKs.Name = "B_ImportPKs";
+        this.B_ImportPKs.Size = new System.Drawing.Size(80, 23);
+        this.B_ImportPKs.TabIndex = 8;
+        this.B_ImportPKs.Text = "Import PKMs";
+        this.B_ImportPKs.UseVisualStyleBackColor = true;
+        this.B_ImportPKs.Click += new System.EventHandler(this.B_ImportPKs_Click);
+        // 
+        // B_ShowdownImport
+        // 
+        this.B_ShowdownImport.Location = new System.Drawing.Point(661, 7);
+        this.B_ShowdownImport.Name = "B_ShowdownImport";
+        this.B_ShowdownImport.Size = new System.Drawing.Size(100, 23);
+        this.B_ShowdownImport.TabIndex = 9;
+        this.B_ShowdownImport.Text = "Showdown Set";
+        this.B_ShowdownImport.UseVisualStyleBackColor = true;
+        this.B_ShowdownImport.Click += new System.EventHandler(this.B_ShowdownImport_Click);
+        // 
+        // B_ShowdownBox
+        // 
+        this.B_ShowdownBox.Location = new System.Drawing.Point(767, 7);
+        this.B_ShowdownBox.Name = "B_ShowdownBox";
+        this.B_ShowdownBox.Size = new System.Drawing.Size(100, 23);
+        this.B_ShowdownBox.TabIndex = 10;
+        this.B_ShowdownBox.Text = "Showdown Box";
+        this.B_ShowdownBox.UseVisualStyleBackColor = true;
+        this.B_ShowdownBox.Click += new System.EventHandler(this.B_ShowdownBox_Click);
+        // 
+        // B_SetPokemonList
+        // 
+        this.B_SetPokemonList.Location = new System.Drawing.Point(294, 7);
+        this.B_SetPokemonList.Name = "B_SetPokemonList";
+        this.B_SetPokemonList.Size = new System.Drawing.Size(60, 23);
+        this.B_SetPokemonList.TabIndex = 11;
+        this.B_SetPokemonList.Text = "Set List";
+        this.B_SetPokemonList.UseVisualStyleBackColor = true;
+        this.B_SetPokemonList.Click += new System.EventHandler(this.B_SetPokemonList_Click);
+        // 
+        // B_View
+        // 
+        this.B_View.Location = new System.Drawing.Point(48, 46);
+        this.B_View.Name = "B_View";
+        this.B_View.Size = new System.Drawing.Size(40, 23);
+        this.B_View.TabIndex = 12;
+        this.B_View.Text = "View";
+        this.B_View.UseVisualStyleBackColor = true;
+        this.B_View.Click += new System.EventHandler(this.B_View_Click);
+        // 
         // MaisonEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(579, 226);
+        this.ClientSize = new System.Drawing.Size(879, 226);
+        this.Controls.Add(this.B_SetPokemonList);
+        this.Controls.Add(this.B_ShowdownBox);
+        this.Controls.Add(this.B_ShowdownImport);
+        this.Controls.Add(this.B_ImportPKs);
         this.Controls.Add(this.DumpTRs);
         this.Controls.Add(this.B_DumpPKs);
         this.Controls.Add(this.GB_Pokemon);
@@ -436,7 +495,6 @@ partial class MaisonEditor7
         this.Controls.Add(this.CB_Pokemon);
         this.Controls.Add(this.CB_Trainer);
         this.MaximizeBox = false;
-        this.MaximumSize = new System.Drawing.Size(595, 265);
         this.MinimumSize = new System.Drawing.Size(595, 265);
         this.Name = "MaisonEditor7";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
@@ -488,4 +546,9 @@ partial class MaisonEditor7
     private System.Windows.Forms.ComboBox CB_Class;
     private System.Windows.Forms.Label L_Form;
     private System.Windows.Forms.NumericUpDown NUD_Form;
+    private System.Windows.Forms.Button B_ImportPKs;
+    private System.Windows.Forms.Button B_ShowdownImport;
+    private System.Windows.Forms.Button B_ShowdownBox;
+    private System.Windows.Forms.Button B_SetPokemonList;
+    private System.Windows.Forms.Button B_View;
 }

@@ -1,4 +1,4 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,11 +24,20 @@ public partial class TextEditor : Form
             // Example mapping for Gen 6 (ORAS/XY)
             if (Mode == "gametext")
             {
-                if (i == 14) displayName += " - Move Names";
-                else if (i == 15) displayName += " - Move Descriptions";
-                else if (i == 22) displayName += " - Species Names";
-                else if (i == 34) displayName += " - Item Names";
-                else if (i == 36) displayName += " - Item Descriptions";
+                if (i == 13) displayName += " - Move Actions";
+                else if (i == 14) displayName += " - Z-Move Actions";
+                else if (i == 15) displayName += " - Battle Interactions";
+                else if (i == 16) displayName += " - Battle Effects";
+                else if (i == 19) displayName += " - Z-Move Names";
+                else if (i == 39) displayName += " - Item Descriptions";
+                else if (i == 40) displayName += " - Item Names";
+                else if (i == 41) displayName += " - Plural Item Names";
+                else if (i == 42) displayName += " - Plural Item Names 2";
+                else if (i == 60) displayName += " - Pokemon Names";
+                else if (i == 101) displayName += " - Ability Names";
+                else if (i == 102) displayName += " - Ability Descriptions";
+                else if (i == 117) displayName += " - Move Descriptions";
+                else if (i == 118) displayName += " - Move Names";
                 // Add more mappings as you discover them
             }
             
@@ -182,51 +191,76 @@ public partial class TextEditor : Form
     
     private void B_NewMoveHandler_Click(object sender, EventArgs e)
     {
-        if (Mode != "gametext")
+        try
         {
-            WinFormsUtil.Error("This feature is only available in Game Text mode.");
-            return;
+            if (Mode != "gametext")
+            {
+                WinFormsUtil.Error("This feature is only available in Game Text mode. Ensure you are loading the full 'gametext' GARC.");
+                return;
+            }
+
+            int count = GetNumberPrompt("New Move Handler", "How many new moves do you want to add?\n(MUST be a multiple of 4)", 4);
+            if (count < 1) return;
+
+            if (count % 4 != 0)
+            {
+                WinFormsUtil.Error("The number of moves to add MUST be a multiple of 4 to ensure game stability.");
+                return;
+            }
+
+            if (entry > -1) files[entry] = GetCurrentDGLines();
+
+            // Detect based on file existence/counts
+            bool isGen7 = files.Length > 118 && files[118] != null;
+            bool isGen6 = !isGen7 && files.Length > 15 && files[14] != null;
+
+            if (isGen7)
+            {
+                ProcessGen7Moves(count);
+            }
+            else if (isGen6)
+            {
+                ProcessGen6Moves(count);
+            }
+            else
+            {
+                WinFormsUtil.Error("Could not auto-detect Generation.", "Ensure you selected 'gametext' when loading, and that you have at least 119 files (Gen 7) or 16 files (Gen 6) in the list.");
+                return;
+            }
+
+            SetStringsDataGridView(files[entry]);
         }
-
-        int count = GetNumberPrompt("New Move Handler", "How many new moves do you want to add?\n(MUST be a multiple of 4)", 4);
-        if (count < 1 || count > 100) return;
-
-        if (count % 4 != 0)
+        catch (Exception ex)
         {
-            WinFormsUtil.Error("The number of moves to add MUST be a multiple of 4 to ensure game stability.");
-            return;
+            WinFormsUtil.Error("Error adding moves:", ex.ToString());
         }
-
-        if (entry > -1) files[entry] = GetCurrentDGLines();
-
-        bool isGen7 = files.Length > 118 && files[118].Length > 600 && files[118][1].Contains("Pound");
-        bool isGen6 = files.Length > 15 && files[14].Length > 600 && files[14][1].Contains("Pound");
-
-        if (!isGen7 && !isGen6)
-        {
-            WinFormsUtil.Error("Could not auto-detect Generation. Ensure you are loading the correct gametext files.");
-            return;
-        }
-
-        if (isGen7) ProcessGen7Moves(count);
-        else if (isGen6) ProcessGen6Moves(count);
-
-        SetStringsDataGridView(files[entry]);
     }
 
     private void ProcessGen7Moves(int count)
     {
-        List<string> file118 = new List<string>(files[118]);
-        List<string> file117 = new List<string>(files[117]);
-        List<string> file19 = new List<string>(files[19]);
-        List<string> file13 = new List<string>(files[13]);
-        List<string> file14 = new List<string>(files[14]);
+        int[] targetFiles = [118, 117, 19, 13, 14];
+        foreach (int i in targetFiles)
+        {
+            if (i >= files.Length || files[i] == null)
+                throw new Exception($"Missing critical text file index: {i}");
+        }
 
-        int movesAddedSoFar = file118.Count >= 729 ? (file118.Count == 729 ? 0 : file118.Count - 728) : 0;
+        List<string> file118 = [.. files[118]];
+        List<string> file117 = [.. files[117]];
+        List<string> file19 = [.. files[19]];
+        List<string> file13 = [.. files[13]];
+        List<string> file14 = [.. files[14]];
+
+        int movesAddedSoFar = file118.Count > 729 ? file118.Count - 728 : 0;
         int startingMoveNumber = movesAddedSoFar + 1;
 
-        int insertIndex13 = Math.Min(2916 + (movesAddedSoFar * 4), file13.Count);
-        int insertIndex14 = Math.Min(2916 + (movesAddedSoFar * 4), file14.Count);
+        // Battle text expansion (4 lines per move)
+        // Usually USUM battle text for moves starts after line ~2915
+        int baseInsert13 = 2916;
+        int baseInsert14 = 2916;
+
+        int insertIndex13 = Math.Min(baseInsert13 + (movesAddedSoFar * 4), file13.Count);
+        int insertIndex14 = Math.Min(baseInsert14 + (movesAddedSoFar * 4), file14.Count);
 
         for (int i = 0; i < count; i++)
         {
@@ -235,11 +269,12 @@ public partial class TextEditor : Form
             string desc117 = $"This move serves as a placeholder, it is currently\\nnamed Placeholder {moveNum}.";
             string name19 = $"Z-Placeholder {moveNum}";
 
-            if (moveNum == 1 && file118.Count == 729)
+            // Check if we are overwriting index 728 (the first "custom" slot if vanilla is 728 lines)
+            if (file118.Count == 728)
             {
-                file118[728] = name118;
-                if (file117.Count == 729) file117[728] = desc117; else file117.Add(desc117);
-                if (file19.Count == 729) file19[728] = name19; else file19.Add(name19);
+                file118.Add(name118);
+                if (file117.Count <= 728) file117.Add(desc117); else file117[728] = desc117;
+                if (file19.Count <= 728) file19.Add(name19); else file19[728] = name19;
             }
             else
             {
@@ -257,13 +292,13 @@ public partial class TextEditor : Form
             insertIndex14 += 4;
         }
 
-        files[118] = file118.ToArray();
-        files[117] = file117.ToArray();
-        files[19] = file19.ToArray();
-        files[13] = file13.ToArray();
-        files[14] = file14.ToArray();
+        files[118] = [.. file118];
+        files[117] = [.. file117];
+        files[19] = [.. file19];
+        files[13] = [.. file13];
+        files[14] = [.. file14];
 
-        WinFormsUtil.Alert($"{count} lines added to files 118, 117, and 19.", $"{count * 4} lines added to files 13 and 14.");
+        WinFormsUtil.Alert("Success!", $"{count} move slots added to Name/Desc/Z-files.", $"{count * 4} lines added to Battle Text files 13 and 14.");
     }
 
     private void ProcessGen6Moves(int count)
@@ -303,13 +338,19 @@ public partial class TextEditor : Form
     {
         using Form promptForm = new Form()
         {
-            Width = 320, Height = 160, FormBorderStyle = FormBorderStyle.FixedDialog, Text = title, StartPosition = FormStartPosition.CenterParent, MaximizeBox = false, MinimizeBox = false
+            Width = 320, Height = 170, FormBorderStyle = FormBorderStyle.FixedDialog, 
+            Text = title, StartPosition = FormStartPosition.CenterParent, 
+            MaximizeBox = false, MinimizeBox = false
         };
         Label textLabel = new Label() { Left = 20, Top = 20, Text = promptText, AutoSize = true };
-        NumericUpDown nud = new NumericUpDown() { Left = 20, Top = 50, Width = 260, Minimum = 1, Maximum = 10000, Value = defaultValue };
-        Button confirmation = new Button() { Text = "OK", Left = 180, Width = 100, Top = 80, DialogResult = DialogResult.OK };
+        NumericUpDown nud = new NumericUpDown() { Left = 20, Top = 50, Width = 260, Minimum = 1, Maximum = 1000, Value = defaultValue };
+        Button confirmation = new Button() { Text = "OK", Left = 110, Width = 100, Top = 90, DialogResult = DialogResult.OK };
         
-        promptForm.Controls.Add(nud); promptForm.Controls.Add(confirmation); promptForm.Controls.Add(textLabel);
+        confirmation.Click += (s, e) => { promptForm.DialogResult = DialogResult.OK; promptForm.Close(); };
+        
+        promptForm.Controls.Add(nud);
+        promptForm.Controls.Add(confirmation);
+        promptForm.Controls.Add(textLabel);
         promptForm.AcceptButton = confirmation;
 
         return promptForm.ShowDialog() == DialogResult.OK ? (int)nud.Value : 0;

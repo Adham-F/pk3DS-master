@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class PickupEditor7
 {
@@ -34,7 +34,9 @@ partial class PickupEditor7
         this.dgvCommon = new System.Windows.Forms.DataGridView();
         this.B_AddRow = new System.Windows.Forms.Button();
         this.B_DeleteRow = new System.Windows.Forms.Button();
+        this.PB_Item = new System.Windows.Forms.PictureBox();
         ((System.ComponentModel.ISupportInitialize)(this.dgvCommon)).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)(this.PB_Item)).BeginInit();
         this.SuspendLayout();
         // 
         // B_Save
@@ -105,11 +107,22 @@ partial class PickupEditor7
         this.B_DeleteRow.UseVisualStyleBackColor = true;
         this.B_DeleteRow.Click += new System.EventHandler(this.B_DeleteRow_Click);
         // 
+        // PB_Item
+        // 
+        this.PB_Item.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.PB_Item.Location = new System.Drawing.Point(252, 319);
+        this.PB_Item.Name = "PB_Item";
+        this.PB_Item.Size = new System.Drawing.Size(48, 48);
+        this.PB_Item.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
+        this.PB_Item.TabIndex = 13;
+        this.PB_Item.TabStop = false;
+        // 
         // PickupEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(680, 361);
+        this.ClientSize = new System.Drawing.Size(680, 375);
+        this.Controls.Add(this.PB_Item);
         this.Controls.Add(this.B_DeleteRow);
         this.Controls.Add(this.B_AddRow);
         this.Controls.Add(this.dgvCommon);
@@ -122,6 +135,7 @@ partial class PickupEditor7
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
         this.Text = "Pickup Editor";
         ((System.ComponentModel.ISupportInitialize)(this.dgvCommon)).EndInit();
+        ((System.ComponentModel.ISupportInitialize)(this.PB_Item)).EndInit();
         this.ResumeLayout(false);
 
     }
@@ -133,4 +147,5 @@ partial class PickupEditor7
     private System.Windows.Forms.DataGridView dgvCommon;
     private System.Windows.Forms.Button B_AddRow;
     private System.Windows.Forms.Button B_DeleteRow;
+    private System.Windows.Forms.PictureBox PB_Item;
 }

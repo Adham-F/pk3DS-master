@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class TypeChart7
 {
@@ -38,7 +38,7 @@ partial class TypeChart7
         // PB_Chart
         // 
         this.PB_Chart.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-        this.PB_Chart.Location = new System.Drawing.Point(12, 12);
+        this.PB_Chart.Location = new System.Drawing.Point(120, 40);
         this.PB_Chart.Name = "PB_Chart";
         this.PB_Chart.Size = new System.Drawing.Size(579, 579);
         this.PB_Chart.TabIndex = 0;
@@ -49,7 +49,7 @@ partial class TypeChart7
         // B_Cancel
         // 
         this.B_Cancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-        this.B_Cancel.Location = new System.Drawing.Point(436, 602);
+        this.B_Cancel.Location = new System.Drawing.Point(542, 630);
         this.B_Cancel.Name = "B_Cancel";
         this.B_Cancel.Size = new System.Drawing.Size(75, 23);
         this.B_Cancel.TabIndex = 467;
@@ -60,7 +60,7 @@ partial class TypeChart7
         // B_Save
         // 
         this.B_Save.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-        this.B_Save.Location = new System.Drawing.Point(517, 602);
+        this.B_Save.Location = new System.Drawing.Point(623, 630);
         this.B_Save.Name = "B_Save";
         this.B_Save.Size = new System.Drawing.Size(75, 23);
         this.B_Save.TabIndex = 466;
@@ -71,7 +71,7 @@ partial class TypeChart7
         // L_Hover
         // 
         this.L_Hover.AutoSize = true;
-        this.L_Hover.Location = new System.Drawing.Point(12, 607);
+        this.L_Hover.Location = new System.Drawing.Point(120, 630);
         this.L_Hover.Name = "L_Hover";
         this.L_Hover.Size = new System.Drawing.Size(117, 13);
         this.L_Hover.TabIndex = 468;
@@ -81,7 +81,7 @@ partial class TypeChart7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(604, 637);
+        this.ClientSize = new System.Drawing.Size(714, 665);
         this.Controls.Add(this.L_Hover);
         this.Controls.Add(this.B_Cancel);
         this.Controls.Add(this.B_Save);

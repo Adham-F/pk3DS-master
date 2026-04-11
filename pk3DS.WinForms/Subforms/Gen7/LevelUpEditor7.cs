@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -42,7 +42,14 @@ public partial class LevelUpEditor7 : Form
         dgv.CellValueChanged += UpdateCounters;
         dgv.RowsAdded += UpdateCounters;
         dgv.RowsRemoved += UpdateCounters;
+
+        Shown += (sender, e) => {
+            if (StartSpecies >= 0)
+                CB_Species.SelectedValue = StartSpecies;
+        };
     }
+
+    public int StartSpecies { get; set; } = -1;
 
     private readonly byte[][] files;
     private int entry = -1;

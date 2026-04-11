@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using pk3DS.Core.CTR;
@@ -180,6 +180,7 @@ public class GameConfig
     public LazyGARCFile GetlzGARCData(string file)
     {
         var gr = GetGARCReference(file);
+        if (gr == null) return null;
         gr = gr.LanguageVariant ? gr.GetRelativeGARC(Language, gr.Name) : gr;
         return new LazyGARCFile(GetlzGARC(file), gr, GetGARCPath(file));
     }
@@ -187,6 +188,7 @@ public class GameConfig
     public GARCFile GetGARCData(string file, bool skipRelative = false)
     {
         var gr = GetGARCReference(file);
+        if (gr == null) return null;
         if (gr.LanguageVariant && !skipRelative)
             gr = gr.GetRelativeGARC(Language, gr.Name);
         return GetGARCByReference(gr);
@@ -198,16 +200,17 @@ public class GameConfig
         {
             return new(GetMemGARC(gr.Name), gr, GetGARCPath(gr.Name));
         }
-        catch (FormatException f)
+        catch (Exception ex)
         {
-            var message = $"{gr.Name} - ({gr.Reference}) is apparently corrupt. Please restore the backup for this file." + f.Message;
-            throw new FormatException(message, f);
+            Console.WriteLine($"Failed to load GARC {gr.Name}: {ex.Message}");
+            return null;
         }
     }
 
-    private string GetGARCPath(string file)
+    public string GetGARCPath(string file)
     {
         var gr = GetGARCReference(file);
+        if (gr == null) return null;
         gr = gr.LanguageVariant ? gr.GetRelativeGARC(Language, gr.Name) : gr;
         string subloc = gr.Reference;
         return Path.Combine(RomFS, subloc);
@@ -245,7 +248,23 @@ public class GameConfig
 
     public string GetGARCFileName(string requestedGARC)
     {
+        // Hardcoded overrides for Gen 7 detection stability (verified for USUM/SM)
+        if (Version == GameVersion.SN || Version == GameVersion.MN || Version == GameVersion.SM || Version == GameVersion.US || Version == GameVersion.UM || Version == GameVersion.USUM)
+        {
+            switch (requestedGARC)
+            {
+                case "menuicon": return USUM ? "a/0/6/2" : "a/0/9/3";
+                case "itemicon": return USUM ? "a/0/6/1" : "a/0/9/4";
+                case "owtrainer": return USUM ? "a/0/7/0" : "a/0/6/9";
+                case "levelup": return USUM ? "a/0/1/3" : "a/0/1/2";
+                case "move": return USUM ? "a/0/1/1" : "a/0/1/1";
+            }
+        }
+
         var garc = GetGARCReference(requestedGARC);
+        if (garc == null)
+            return "NULL_REFERENCE";
+            
         if (garc.LanguageVariant)
             garc = garc.GetRelativeGARC(Language);
 

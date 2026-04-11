@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 sealed partial class Main
 {
@@ -93,7 +93,9 @@ sealed partial class Main
         this.B_Starter = new System.Windows.Forms.Button();
         this.B_Gift = new System.Windows.Forms.Button();
         this.B_Static = new System.Windows.Forms.Button();
-        this.B_AbilityEditorAdv = new System.Windows.Forms.Button();
+        this.B_CROExpander = new System.Windows.Forms.Button();
+        this.B_GlobalRepair = new System.Windows.Forms.Button();
+        this.B_ResearchCenter = new System.Windows.Forms.Button();
         this.Tab_Output = new System.Windows.Forms.TabPage();
         this.L_Status = new System.Windows.Forms.Label();
         this.Menu_Extract_3DS = new System.Windows.Forms.ToolStripMenuItem();
@@ -661,7 +663,6 @@ sealed partial class Main
         this.Tab_ExeFS.Text = "ExeFS";
         this.Tab_ExeFS.UseVisualStyleBackColor = true;
         // 
-        // FLP_ExeFS
         // 
         this.FLP_ExeFS.AutoScroll = true;
         this.FLP_ExeFS.Controls.Add(this.B_MoveTutor);
@@ -713,7 +714,9 @@ sealed partial class Main
         this.FLP_CRO.Controls.Add(this.B_Starter);
         this.FLP_CRO.Controls.Add(this.B_Gift);
         this.FLP_CRO.Controls.Add(this.B_Static);
-        this.FLP_CRO.Controls.Add(this.B_AbilityEditorAdv);
+        this.FLP_CRO.Controls.Add(this.B_CROExpander);
+        this.FLP_CRO.Controls.Add(this.B_GlobalRepair);
+        this.FLP_CRO.Controls.Add(this.B_ResearchCenter);
         this.FLP_CRO.Dock = System.Windows.Forms.DockStyle.Fill;
         this.FLP_CRO.Location = new System.Drawing.Point(0, 0);
         this.FLP_CRO.Name = "FLP_CRO";
@@ -760,17 +763,37 @@ sealed partial class Main
         this.B_Static.Text = "Static Encounters";
         this.B_Static.UseVisualStyleBackColor = true;
         this.B_Static.Click += new System.EventHandler(this.B_Static_Click);
-        //
-        // B_AbilityEditorAdv
         // 
-        this.B_AbilityEditorAdv.Location = new System.Drawing.Point(112, 35);
-        this.B_AbilityEditorAdv.Name = "B_AbilityEditorAdv";
-        this.B_AbilityEditorAdv.Size = new System.Drawing.Size(100, 23);
-        this.B_AbilityEditorAdv.TabIndex = 4;
-        this.B_AbilityEditorAdv.Text = "Ability Editor";
-        this.B_AbilityEditorAdv.UseVisualStyleBackColor = true;
-        this.B_AbilityEditorAdv.Click += new System.EventHandler(this.B_AbilityEditorAdv_Click);
-        //
+        // B_CROExpander
+        // 
+        this.B_CROExpander.Location = new System.Drawing.Point(112, 35);
+        this.B_CROExpander.Name = "B_CROExpander";
+        this.B_CROExpander.Size = new System.Drawing.Size(100, 23);
+        this.B_CROExpander.TabIndex = 4;
+        this.B_CROExpander.Text = "CRO Expander";
+        this.B_CROExpander.UseVisualStyleBackColor = true;
+        this.B_CROExpander.Click += new System.EventHandler(this.B_CROExpander_Click);
+        // 
+        // B_GlobalRepair
+        // 
+        this.B_GlobalRepair.Location = new System.Drawing.Point(218, 35);
+        this.B_GlobalRepair.Name = "B_GlobalRepair";
+        this.B_GlobalRepair.Size = new System.Drawing.Size(100, 23);
+        this.B_GlobalRepair.TabIndex = 5;
+        this.B_GlobalRepair.Text = "Global Repair";
+        this.B_GlobalRepair.UseVisualStyleBackColor = true;
+        this.B_GlobalRepair.Click += new System.EventHandler(this.B_GlobalRepair_Click);
+        // 
+        // B_ResearchCenter
+        // 
+        this.B_ResearchCenter.Location = new System.Drawing.Point(6, 64);
+        this.B_ResearchCenter.Name = "B_ResearchCenter";
+        this.B_ResearchCenter.Size = new System.Drawing.Size(100, 23);
+        this.B_ResearchCenter.TabIndex = 6;
+        this.B_ResearchCenter.Text = "Research Center";
+        this.B_ResearchCenter.UseVisualStyleBackColor = true;
+        this.B_ResearchCenter.Click += new System.EventHandler(this.B_ResearchCenter_Click);
+        // 
         // Tab_Output
         // 
         this.Tab_Output.Controls.Add(this.RTB_Status);
@@ -869,7 +892,8 @@ sealed partial class Main
     private System.Windows.Forms.FlowLayoutPanel FLP_ExeFS;
     private System.Windows.Forms.TabPage Tab_Output;
     private System.Windows.Forms.Button B_Static;
-    private System.Windows.Forms.Button B_AbilityEditorAdv;
+    private System.Windows.Forms.Button B_CROExpander;
+    private System.Windows.Forms.Button B_GlobalRepair;
     private System.Windows.Forms.Button B_Gift;
     private System.Windows.Forms.Button B_Starter;
     private System.Windows.Forms.Button B_TypeChart;
@@ -899,4 +923,5 @@ sealed partial class Main
     private System.Windows.Forms.ToolStripMenuItem Menu_Extract_CXI;
     private System.Windows.Forms.ToolStripMenuItem Menu_Trimmed3DS;
     private System.Windows.Forms.ToolStripMenuItem Menu_Extract_3DS;
+    private System.Windows.Forms.Button B_ResearchCenter;
 }

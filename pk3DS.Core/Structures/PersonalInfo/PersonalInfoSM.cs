@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 
 namespace pk3DS.Core.Structures.PersonalInfo;
@@ -17,7 +17,10 @@ public class PersonalInfoSM : PersonalInfoXY
         TypeTutors = GetBits(Data.Skip(0x38).Take(0x4).ToArray()); // 40
         SpecialTutors =
         [
-            GetBits(Data.Skip(0x3C).Take(0x0A).ToArray()),
+            GetBits(Data.Skip(0x3C).Take(0x4).ToArray()),
+            GetBits(Data.Skip(0x40).Take(0x4).ToArray()),
+            GetBits(Data.Skip(0x44).Take(0x4).ToArray()),
+            GetBits(Data.Skip(0x48).Take(0x4).ToArray()),
         ];
     }
 
@@ -26,6 +29,9 @@ public class PersonalInfoSM : PersonalInfoXY
         SetBits(TMHM).CopyTo(Data, 0x28);
         SetBits(TypeTutors).CopyTo(Data, 0x38);
         SetBits(SpecialTutors[0]).CopyTo(Data, 0x3C);
+        SetBits(SpecialTutors[1]).CopyTo(Data, 0x40);
+        SetBits(SpecialTutors[2]).CopyTo(Data, 0x44);
+        SetBits(SpecialTutors[3]).CopyTo(Data, 0x48);
         return Data;
     }
 

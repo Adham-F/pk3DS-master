@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace pk3DS.Core.Structures;
 
@@ -32,8 +32,8 @@ public enum MoveFlag7 : uint
     F21 = 1u << 20,
     F22 = 1u << 21,
     F23 = 1u << 22,
-    F24 = 1u << 23,
 
+    F24 = 1u << 23,
     F25 = 1u << 24,
     F26 = 1u << 25,
     F27 = 1u << 26,

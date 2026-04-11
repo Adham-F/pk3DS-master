@@ -2,15 +2,8 @@ namespace pk3DS.WinForms;
 
 partial class MartEditor7
 {
-    /// <summary>
-    /// Required designer variable.
-    /// </summary>
     private System.ComponentModel.IContainer components = null;
 
-    /// <summary>
-    /// Clean up any resources being used.
-    /// </summary>
-    /// <param name="disposing">true if managed resources should be disposed; otherwise, false.</param>
     protected override void Dispose(bool disposing)
     {
         if (disposing && (components != null))
@@ -20,12 +13,6 @@ partial class MartEditor7
         base.Dispose(disposing);
     }
 
-    #region Windows Form Designer generated code
-
-    /// <summary>
-    /// Required method for Designer support - do not modify
-    /// the contents of this method with the code editor.
-    /// </summary>
     private void InitializeComponent()
     {
         System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
@@ -48,6 +35,10 @@ partial class MartEditor7
         this.CHK_XItems = new System.Windows.Forms.CheckBox();
         this.B_ExportTxt = new System.Windows.Forms.Button();
         this.B_ImportTxt = new System.Windows.Forms.Button();
+        this.B_Add = new System.Windows.Forms.Button();
+        this.B_Del = new System.Windows.Forms.Button();
+        this.B_AddBP = new System.Windows.Forms.Button();
+        this.B_DelBP = new System.Windows.Forms.Button();
         ((System.ComponentModel.ISupportInitialize)(this.dgv)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.dgvbp)).BeginInit();
         this.SuspendLayout();
@@ -58,7 +49,7 @@ partial class MartEditor7
         this.CB_Location.FormattingEnabled = true;
         this.CB_Location.Location = new System.Drawing.Point(69, 6);
         this.CB_Location.Name = "CB_Location";
-        this.CB_Location.Size = new System.Drawing.Size(243, 21);
+        this.CB_Location.Size = new System.Drawing.Size(155, 21);
         this.CB_Location.TabIndex = 0;
         this.CB_Location.SelectedIndexChanged += new System.EventHandler(this.ChangeIndex);
         // 
@@ -70,8 +61,8 @@ partial class MartEditor7
         this.dgv.AllowUserToResizeRows = false;
         this.dgv.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         this.dgv.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.dgvIndex,
-            this.dgvItem});
+        this.dgvIndex,
+        this.dgvItem});
         this.dgv.Location = new System.Drawing.Point(12, 33);
         this.dgv.Name = "dgv";
         this.dgv.Size = new System.Drawing.Size(300, 284);
@@ -100,7 +91,7 @@ partial class MartEditor7
         this.L_Mart.Name = "L_Mart";
         this.L_Mart.Size = new System.Drawing.Size(51, 13);
         this.L_Mart.TabIndex = 2;
-        this.L_Mart.Text = "Location:";
+        this.L_Mart.Text = "Shop:";
         // 
         // B_Randomize
         // 
@@ -139,7 +130,7 @@ partial class MartEditor7
         this.label1.Name = "label1";
         this.label1.Size = new System.Drawing.Size(51, 13);
         this.label1.TabIndex = 8;
-        this.label1.Text = "Location:";
+        this.label1.Text = "Shop:";
         // 
         // CB_LocationBP
         // 
@@ -147,7 +138,7 @@ partial class MartEditor7
         this.CB_LocationBP.FormattingEnabled = true;
         this.CB_LocationBP.Location = new System.Drawing.Point(384, 6);
         this.CB_LocationBP.Name = "CB_LocationBP";
-        this.CB_LocationBP.Size = new System.Drawing.Size(243, 21);
+        this.CB_LocationBP.Size = new System.Drawing.Size(155, 21);
         this.CB_LocationBP.TabIndex = 6;
         this.CB_LocationBP.SelectedIndexChanged += new System.EventHandler(this.ChangeIndexBP);
         // 
@@ -169,9 +160,9 @@ partial class MartEditor7
         this.dgvbp.AllowUserToResizeRows = false;
         this.dgvbp.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         this.dgvbp.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-            this.dgvIndexBP,
-            this.dgvItemBP,
-            this.dgvPriceBP});
+        this.dgvIndexBP,
+        this.dgvItemBP,
+        this.dgvPriceBP});
         this.dgvbp.Location = new System.Drawing.Point(327, 33);
         this.dgvbp.Name = "dgvbp";
         this.dgvbp.Size = new System.Drawing.Size(300, 284);
@@ -233,11 +224,55 @@ partial class MartEditor7
         this.B_ImportTxt.UseVisualStyleBackColor = true;
         this.B_ImportTxt.Click += new System.EventHandler(this.B_ImportTxt_Click);
         // 
+        // B_Add
+        // 
+        this.B_Add.Location = new System.Drawing.Point(232, 5);
+        this.B_Add.Name = "B_Add";
+        this.B_Add.Size = new System.Drawing.Size(40, 23);
+        this.B_Add.TabIndex = 307;
+        this.B_Add.Text = "Add";
+        this.B_Add.UseVisualStyleBackColor = true;
+        this.B_Add.Click += new System.EventHandler(this.B_Add_Click);
+        // 
+        // B_Del
+        // 
+        this.B_Del.Location = new System.Drawing.Point(272, 5);
+        this.B_Del.Name = "B_Del";
+        this.B_Del.Size = new System.Drawing.Size(40, 23);
+        this.B_Del.TabIndex = 308;
+        this.B_Del.Text = "Del";
+        this.B_Del.UseVisualStyleBackColor = true;
+        this.B_Del.Click += new System.EventHandler(this.B_Del_Click);
+        // 
+        // B_AddBP
+        // 
+        this.B_AddBP.Location = new System.Drawing.Point(545, 5);
+        this.B_AddBP.Name = "B_AddBP";
+        this.B_AddBP.Size = new System.Drawing.Size(40, 23);
+        this.B_AddBP.TabIndex = 309;
+        this.B_AddBP.Text = "Add";
+        this.B_AddBP.UseVisualStyleBackColor = true;
+        this.B_AddBP.Click += new System.EventHandler(this.B_AddBP_Click);
+        // 
+        // B_DelBP
+        // 
+        this.B_DelBP.Location = new System.Drawing.Point(587, 5);
+        this.B_DelBP.Name = "B_DelBP";
+        this.B_DelBP.Size = new System.Drawing.Size(40, 23);
+        this.B_DelBP.TabIndex = 310;
+        this.B_DelBP.Text = "Del";
+        this.B_DelBP.UseVisualStyleBackColor = true;
+        this.B_DelBP.Click += new System.EventHandler(this.B_DelBP_Click);
+        // 
         // MartEditor7
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(639, 390);
+        this.ClientSize = new System.Drawing.Size(639, 410);
+        this.Controls.Add(this.B_DelBP);
+        this.Controls.Add(this.B_AddBP);
+        this.Controls.Add(this.B_Del);
+        this.Controls.Add(this.B_Add);
         this.Controls.Add(this.B_ImportTxt);
         this.Controls.Add(this.B_ExportTxt);
         this.Controls.Add(this.CHK_XItems);
@@ -252,7 +287,7 @@ partial class MartEditor7
         this.Controls.Add(this.dgv);
         this.Controls.Add(this.CB_Location);
         this.MaximizeBox = false;
-        this.MinimumSize = new System.Drawing.Size(340, 400);
+        this.MinimumSize = new System.Drawing.Size(655, 450);
         this.Name = "MartEditor7";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
         this.Text = "Mart Editor";
@@ -262,8 +297,6 @@ partial class MartEditor7
         this.PerformLayout();
 
     }
-
-    #endregion
 
     private System.Windows.Forms.ComboBox CB_Location;
     private System.Windows.Forms.DataGridView dgv;
@@ -283,4 +316,8 @@ partial class MartEditor7
     private System.Windows.Forms.CheckBox CHK_XItems;
     private System.Windows.Forms.Button B_ExportTxt;
     private System.Windows.Forms.Button B_ImportTxt;
+    private System.Windows.Forms.Button B_Add;
+    private System.Windows.Forms.Button B_Del;
+    private System.Windows.Forms.Button B_AddBP;
+    private System.Windows.Forms.Button B_DelBP;
 }

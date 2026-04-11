@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -54,7 +54,14 @@ string[] specieslist = Main.Config.Personal.GetPersonalEntryList(AltForms, speci
 
         CB_Species.SelectedIndex = 0;
         RandSettings.GetFormSettings(this, groupBox1.Controls);
+
+        Shown += (sender, e) => {
+            if (StartSpecies >= 0)
+                CB_Species.SelectedValue = StartSpecies;
+        };
     }
+
+    public int StartSpecies { get; set; } = -1;
 
     private readonly EggMoves7[] entries;
 

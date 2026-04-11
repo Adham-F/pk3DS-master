@@ -1,4 +1,4 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -13,6 +13,8 @@ namespace pk3DS.WinForms;
 
 public static class WinFormsUtil
 {
+    public static bool IsCyberSlate { get; set; } = true;
+    public static bool ShowExtendedLogic { get; set; } = false;
     // Image Layering/Blending Utility
     public static Bitmap LayerImage(Image baseLayer, Image overLayer, int x, int y, double trans)
     {
@@ -263,6 +265,139 @@ public static class WinFormsUtil
         return s;
     }
 
+    public static void ApplyTheme(Form f) => ApplyCyberSlateTheme(f, IsCyberSlate);
+    public static void RefreshAllThemes()
+    {
+        foreach (Form f in Application.OpenForms)
+            ApplyCyberSlateTheme(f, IsCyberSlate);
+    }
+
+    public static void ApplyCyberSlateTheme(Form form, bool enabled)
+    {
+        if (enabled)
+        {
+            form.BackColor = Color.FromArgb(20, 20, 30);
+            form.ForeColor = Color.WhiteSmoke;
+        }
+        else
+        {
+            form.BackColor = SystemColors.Control;
+            form.ForeColor = SystemColors.ControlText;
+        }
+        form.Font = new Font("Segoe UI", 9F);
+        
+        foreach (Control c in form.Controls)
+            ApplyCyberSlateTheme(c, enabled);
+            
+        // Handle MenuStrips
+        foreach (MenuStrip ms in form.Controls.OfType<MenuStrip>())
+        {
+            if (enabled)
+            {
+                ms.BackColor = Color.FromArgb(45, 50, 65);
+                ms.ForeColor = Color.WhiteSmoke;
+            }
+            else
+            {
+                ms.BackColor = SystemColors.Control;
+                ms.ForeColor = SystemColors.ControlText;
+            }
+            foreach (ToolStripMenuItem item in ms.Items)
+                ApplyThemeToMenuItem(item, enabled);
+        }
+    }
+
+    private static void ApplyCyberSlateTheme(Control c, bool enabled)
+    {
+        if (enabled)
+        {
+            if (c is Panel || c is GroupBox || c is TabControl || c is TabPage)
+            {
+                c.BackColor = Color.FromArgb(20, 20, 30);
+                c.ForeColor = Color.WhiteSmoke;
+            }
+            else if (c is Label lbl)
+            {
+                lbl.ForeColor = Color.FromArgb(220, 220, 220);
+            }
+            else if (c is Button btn)
+            {
+                btn.FlatStyle = FlatStyle.Flat;
+                btn.BackColor = Color.FromArgb(45, 50, 65);
+                btn.ForeColor = Color.WhiteSmoke;
+                btn.FlatAppearance.BorderColor = Color.FromArgb(45, 50, 65); // Blend into background
+            }
+            else if (c is TextBoxBase tb)
+            {
+                tb.BackColor = Color.FromArgb(15, 15, 20);
+                tb.ForeColor = Color.LightGray;
+                tb.BorderStyle = BorderStyle.FixedSingle;
+            }
+            else if (c is ListControl lc)
+            {
+                lc.BackColor = Color.FromArgb(15, 15, 20);
+                lc.ForeColor = Color.LightGray;
+            }
+            else if (c is DataGridView dgv)
+            {
+                dgv.BackgroundColor = Color.FromArgb(20, 20, 30);
+                dgv.DefaultCellStyle.BackColor = Color.FromArgb(30, 30, 40);
+                dgv.DefaultCellStyle.ForeColor = Color.WhiteSmoke;
+                dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 50, 65);
+                dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.WhiteSmoke;
+                dgv.EnableHeadersVisualStyles = false;
+            }
+        }
+        else // Revert to System
+        {
+            c.BackColor = SystemColors.Control;
+            c.ForeColor = SystemColors.ControlText;
+            if (c is Button btn) btn.FlatStyle = FlatStyle.Standard;
+            if (c is TextBoxBase tb) tb.BorderStyle = BorderStyle.Fixed3D;
+            if (c is DataGridView dgv) 
+            {
+                dgv.BackgroundColor = SystemColors.AppWorkspace;
+                dgv.DefaultCellStyle.BackColor = SystemColors.Window;
+                dgv.DefaultCellStyle.ForeColor = SystemColors.ControlText;
+                dgv.EnableHeadersVisualStyles = true;
+            }
+        }
+
+        foreach (Control child in c.Controls)
+            ApplyCyberSlateTheme(child, enabled);
+    }
+
+    private static void ApplyThemeToMenuItem(ToolStripMenuItem item, bool enabled)
+    {
+        if (enabled)
+        {
+            item.BackColor = Color.FromArgb(45, 50, 65);
+            item.ForeColor = Color.WhiteSmoke;
+        }
+        else
+        {
+            item.BackColor = SystemColors.Control;
+            item.ForeColor = SystemColors.ControlText;
+        }
+
+        foreach (ToolStripItem sub in item.DropDownItems)
+        {
+            if (enabled)
+            {
+                sub.BackColor = Color.FromArgb(45, 50, 65);
+                sub.ForeColor = Color.WhiteSmoke;
+            }
+            else
+            {
+                sub.BackColor = SystemColors.Control;
+                sub.ForeColor = SystemColors.ControlText;
+            }
+
+            if (sub is ToolStripMenuItem tsmi)
+                ApplyThemeToMenuItem(tsmi, enabled);
+        }
+    }
+
     // Form Translation
     public static void TranslateInterface(Control form, string lang)
     {
@@ -372,6 +507,47 @@ public static class WinFormsUtil
         System.Media.SystemSounds.Question.Play();
         string msg = string.Join(Environment.NewLine + Environment.NewLine, lines);
         return MessageBox.Show(msg, "Prompt", btn, MessageBoxIcon.Asterisk);
+    }
+
+    public static string GetInput(string title, string prompt)
+    {
+        Form form = new Form();
+        Label label = new Label();
+        TextBox textBox = new TextBox();
+        Button buttonOk = new Button();
+        Button buttonCancel = new Button();
+
+        form.Text = title;
+        label.Text = prompt;
+        textBox.Text = "";
+
+        buttonOk.Text = "OK";
+        buttonCancel.Text = "Cancel";
+        buttonOk.DialogResult = DialogResult.OK;
+        buttonCancel.DialogResult = DialogResult.Cancel;
+
+        label.SetBounds(9, 20, 372, 13);
+        textBox.SetBounds(12, 36, 372, 20);
+        buttonOk.SetBounds(228, 72, 75, 23);
+        buttonCancel.SetBounds(309, 72, 75, 23);
+
+        label.AutoSize = true;
+        textBox.Anchor |= AnchorStyles.Right;
+        buttonOk.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+        buttonCancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+
+        form.ClientSize = new Size(396, 107);
+        form.Controls.AddRange(new Control[] { label, textBox, buttonOk, buttonCancel });
+        form.ClientSize = new Size(Math.Max(300, label.Right + 10), form.ClientSize.Height);
+        form.FormBorderStyle = FormBorderStyle.FixedDialog;
+        form.StartPosition = FormStartPosition.CenterScreen;
+        form.MinimizeBox = false;
+        form.MaximizeBox = false;
+        form.AcceptButton = buttonOk;
+        form.CancelButton = buttonCancel;
+
+        DialogResult dialogResult = form.ShowDialog();
+        return dialogResult == DialogResult.OK ? textBox.Text : null;
     }
 
     public static List<ComboItem> GetCBList(string textfile, string lang)

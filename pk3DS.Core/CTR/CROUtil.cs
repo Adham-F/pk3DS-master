@@ -1,0 +1,380 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography;
+
+using pk3DS.Core.Modding;
+
+namespace pk3DS.Core.CTR
+{
+    public class AuditReport
+    {
+        public bool IsExpanded { get; set; }
+        public bool HashValid { get; set; }
+        public bool RelocationsIntact { get; set; }
+        public string Details { get; set; } = "";
+    }
+
+    public static class CROUtil
+    {
+        public static uint ReadU32(byte[] data, int offset) => BitConverter.ToUInt32(data, offset);
+        public static void WriteU32(byte[] data, uint value, int offset) => BitConverter.GetBytes(value).CopyTo(data, offset);
+
+        public static void UpdateOffsetPointer(byte[] data, int pointerLocation, int change, uint skipValue = 0, bool ignoreZero = true)
+        {
+            if (pointerLocation < 0 || pointerLocation + 4 > data.Length) return;
+            uint temp = ReadU32(data, pointerLocation);
+
+            if (temp < skipValue) return;
+            if (ignoreZero && temp == 0) return;
+
+            WriteU32(data, (uint)(temp + change), pointerLocation);
+        }
+
+        public static byte[] InjectSandboxPatch(byte[] data, uint originalOffset, byte[] patch)
+        {
+            // Always expand to ensure safe space
+            int patchSize = (patch.Length + 11) & ~3; // Align to 4 bytes
+            byte[] expanded = ExpandSegment(data, 'c', patchSize);
+            uint[] starts = GetSegmentStartIndices(expanded);
+            
+            // The segment table offset is always at 0xC8
+            uint segmentTableOffset = ReadU32(expanded, 0xC8);
+            // .code length is at SegmentTable + 4
+            uint oldCodeLen = ReadU32(data, (int)segmentTableOffset + 4);
+            uint newSpaceAbsolute = starts[0] + oldCodeLen; 
+
+            // 1. Write the patch to new space
+            Array.Copy(patch, 0, expanded, newSpaceAbsolute, patch.Length);
+
+            // 2. Write the Bridge (Branch) from originalOffset to newSpace
+            uint bridgeOffset = originalOffset + starts[0];
+            uint relAddr = (newSpaceAbsolute - bridgeOffset - 8) >> 2;
+            uint branchInstr = 0xEA000000 | (relAddr & 0xFFFFFF);
+            WriteU32(expanded, branchInstr, (int)bridgeOffset);
+
+            return expanded;
+        }
+
+        public static byte[] ExpandSegment(byte[] data, char section, int bytesToAdd, int insertionPointRequested = -1, byte fill = 0x00)
+        {
+            int fileSize = data.Length;
+            uint segmentTableOffset = ReadU32(data, 0xC8);
+            uint[] startTable = GetSegmentStartIndices(data);
+
+            uint skipCheck = 0;
+            // .code, .rodata, .data
+            if (section == 'c') skipCheck = startTable[0] + ReadU32(data, (int)segmentTableOffset + 4);
+            else if (section == 'r') skipCheck = startTable[1] + ReadU32(data, (int)segmentTableOffset + 0x10);
+            else if (section == 'd') skipCheck = startTable[2] + ReadU32(data, (int)segmentTableOffset + 0x1C);
+            else skipCheck = (uint)data.Length;
+
+            int skip = (int)skipCheck;
+            byte[] newData = new byte[fileSize + bytesToAdd];
+            Array.Copy(data, 0, newData, 0, skip);
+            for (int i = 0; i < bytesToAdd; i++) newData[skip + i] = fill;
+            Array.Copy(data, skip, newData, skip + bytesToAdd, fileSize - skip);
+
+            // 1. Update Segment Table entries and starts
+            if (segmentTableOffset >= skip) segmentTableOffset += (uint)bytesToAdd;
+            WriteU32(newData, segmentTableOffset, 0xC8);
+
+            // Update individual segment lengths
+            if (section == 'c') UpdateOffsetPointer(newData, (int)segmentTableOffset + 4, bytesToAdd);
+            else if (section == 'r') UpdateOffsetPointer(newData, (int)segmentTableOffset + 0x10, bytesToAdd);
+            else if (section == 'd') UpdateOffsetPointer(newData, (int)segmentTableOffset + 0x1C, bytesToAdd);
+
+            // Update all segment start addresses that are after the skip point
+            for (int i = 0; i < 4; i++)
+            {
+                int startPtr = (int)segmentTableOffset + i * 0x0C;
+                uint s = ReadU32(newData, startPtr);
+                if (s >= skip)
+                {
+                    s += (uint)bytesToAdd;
+                    WriteU32(newData, s, startPtr);
+                }
+            }
+
+            // 2. Global Header Pointers
+            UpdateOffsetPointer(newData, 0x84, bytesToAdd, skipCheck); // Name Offset
+            WriteU32(newData, (uint)(fileSize + bytesToAdd), 0x90); // File Size
+            UpdateOffsetPointer(newData, 0xB8, bytesToAdd, skipCheck); // Data Start
+            UpdateOffsetPointer(newData, 0xBC, bytesToAdd, skipCheck);
+            for (int x = 0; x < 15; x++)
+                UpdateOffsetPointer(newData, 0xC0 + x * 8, bytesToAdd, skipCheck);
+
+            // 3. Pointer Tables (Import, Export, etc.)
+            int[][] updateTables = [[0xD0, 0x0, 0x8], [0xF0, 0x0, 0x4, 0xC, 0x14], [0x100, 0x0, 0x4, 0x8], [0x110, 0x4, 0x8]];
+            foreach (var table in updateTables)
+            {
+                uint pointerPointer = ReadU32(newData, table[0]);
+                uint entryCount = ReadU32(newData, table[0] + 4);
+                int entrySize = table.Last();
+                if (pointerPointer == 0) continue;
+
+                if (pointerPointer >= skipCheck)
+                {
+                    pointerPointer = (uint)(pointerPointer + bytesToAdd);
+                    WriteU32(newData, pointerPointer, table[0]);
+                }
+
+                for (int i = 0; i < entryCount; i++)
+                {
+                    for (int s = 1; s < table.Length - 1; s++)
+                    {
+                        UpdateOffsetPointer(newData, (int)(i * entrySize + table[s] + pointerPointer), bytesToAdd, skipCheck);
+                    }
+                }
+            }
+
+            // 4. Relocation Patches
+            uint patchTableOffset = ReadU32(newData, 0x128);
+            uint patchTableCount = ReadU32(newData, 0x12C);
+            if (patchTableCount > 0)
+            {
+                if (patchTableOffset >= skipCheck)
+                {
+                    patchTableOffset += (uint)bytesToAdd;
+                    WriteU32(newData, patchTableOffset, 0x128);
+                }
+
+                uint[] newStarts = GetSegmentStartIndices(newData);
+                for (int i = 0; i < (int)patchTableCount; i++)
+                {
+                    int entryOfs = (int)(patchTableOffset + i * 0x0C);
+                    uint writingInfo = ReadU32(newData, entryOfs);
+                    int writeSeg = (int)(writingInfo & 0xF);
+                    uint writeOff = writingInfo >> 4;
+                    uint pointedAt = ReadU32(newData, entryOfs + 8);
+                    int targetSeg = newData[entryOfs + 5];
+
+                    if (writeSeg > 3 || targetSeg > 3) continue;
+
+                    uint absWrite = writeOff + newStarts[writeSeg];
+                    if (absWrite >= skipCheck + bytesToAdd) 
+                    {
+                        uint nOff = (uint)(absWrite - newStarts[writeSeg]);
+                        WriteU32(newData, (nOff << 4) | (uint)writeSeg, entryOfs);
+                    }
+                    
+                    uint absTarget = pointedAt + newStarts[targetSeg];
+                    if (absTarget >= skipCheck + bytesToAdd)
+                    {
+                        uint nAdd = (uint)(absTarget - newStarts[targetSeg]);
+                        WriteU32(newData, nAdd, entryOfs + 8);
+                    }
+                }
+            }
+
+            // 5. SHA-256 Integrity
+            byte[] hashes = RecalculateSegmentHashes(newData);
+            Array.Copy(hashes, 0, newData, 0x84, hashes.Length);
+
+            return newData;
+        }
+
+        private static byte[] RecalculateSegmentHashes(byte[] data)
+        {
+            uint segmentTableOffset = ReadU32(data, 0xC8);
+            byte[] hashes = new byte[0x20 * 4];
+            uint[] starts = GetSegmentStartIndices(data);
+            using (var sha = SHA256.Create())
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    uint off = starts[i];
+                    uint size = ReadU32(data, (int)segmentTableOffset + i * 0x0C + 4);
+                    if (size == 0) continue;
+                    byte[] h = sha.ComputeHash(data, (int)off, (int)size);
+                    Array.Copy(h, 0, hashes, i * 0x20, 0x20);
+                }
+            }
+            return hashes;
+        }
+
+        public static uint[] GetSegmentStartIndices(byte[] data)
+        {
+            uint segmentTableOffset = ReadU32(data, 0xC8);
+            uint[] starts = new uint[4];
+            for (int i = 0; i < 4; i++)
+                starts[i] = ReadU32(data, (int)(segmentTableOffset + i * 0x0C));
+            return starts;
+        }
+
+        public static int GetSegmentForAddress(uint address, byte[] data)
+        {
+            uint segmentTableOffset = ReadU32(data, 0xC8);
+            uint codeStart = ReadU32(data, (int)segmentTableOffset);
+            uint codeLen = ReadU32(data, (int)segmentTableOffset + 4);
+            uint dataStart = ReadU32(data, (int)segmentTableOffset + 0x18);
+            uint dataLen = ReadU32(data, (int)segmentTableOffset + 0x1C);
+            
+            if (address >= dataStart + dataLen) return 3; // BSS
+            if (address < codeStart + codeLen) return 0; // Code
+            if (address < dataStart) return 1; // Rodata
+            return 2; // Data
+        }
+
+        public static void RelocateTable(byte[] data, uint oldRelativeAddend, int oldSegment, uint newAbsoluteOffset, int tableLengthBytes)
+        {
+            uint[] starts = GetSegmentStartIndices(data);
+            uint oldAbsoluteOffset = oldRelativeAddend + starts[oldSegment];
+            int newSegment = GetSegmentForAddress(newAbsoluteOffset, data);
+
+            if (oldAbsoluteOffset + tableLengthBytes <= data.Length && 
+                newAbsoluteOffset + tableLengthBytes <= data.Length)
+            {
+                Array.Copy(data, oldAbsoluteOffset, data, newAbsoluteOffset, tableLengthBytes);
+                for (int i = 0; i < tableLengthBytes; i++) data[oldAbsoluteOffset + i] = 0xCC;
+            }
+
+            uint patchTableOffset = ReadU32(data, 0x128);
+            uint patchTableCount = ReadU32(data, 0x12C);
+            if (patchTableCount == 0) return;
+
+            for (int i = 0; i < (int)patchTableCount; i++)
+            {
+                int entryOfs = (int)(patchTableOffset + i * 0x0C);
+                uint writingInfo = ReadU32(data, entryOfs);
+                int writeSeg = (int)(writingInfo & 0xF);
+                uint writeOff = writingInfo >> 4;
+                uint pointedAt = ReadU32(data, entryOfs + 8);
+                int targetSeg = data[entryOfs + 5];
+
+                if (targetSeg == oldSegment && pointedAt >= oldRelativeAddend && pointedAt < oldRelativeAddend + tableLengthBytes)
+                {
+                    data[entryOfs + 5] = (byte)newSegment;
+                    uint newRelativeAddend = newAbsoluteOffset - starts[newSegment] + (pointedAt - oldRelativeAddend);
+                    WriteU32(data, newRelativeAddend, entryOfs + 8);
+                }
+
+                if (writeSeg == oldSegment && writeOff >= oldRelativeAddend && writeOff < oldRelativeAddend + tableLengthBytes)
+                {
+                    uint newWriteOff = newAbsoluteOffset + (writeOff - oldRelativeAddend) - starts[newSegment];
+                    WriteU32(data, (newWriteOff << 4) | (uint)newSegment, entryOfs);
+                }
+            }
+        }
+
+        public static void RelocateFunction(byte[] data, uint oldRelativeAddend, int oldSegment, uint newAbsoluteOffset)
+        {
+            uint[] starts = GetSegmentStartIndices(data);
+            int newSegment = GetSegmentForAddress(newAbsoluteOffset, data);
+
+            uint patchTableOffset = ReadU32(data, 0x128);
+            uint patchTableCount = ReadU32(data, 0x12C);
+            if (patchTableCount == 0) return;
+
+            for (int i = 0; i < (int)patchTableCount; i++)
+            {
+                int entryOfs = (int)(patchTableOffset + i * 0x0C);
+                uint pointedAt = ReadU32(data, entryOfs + 8);
+                int targetSeg = data[entryOfs + 5];
+
+                if (pointedAt == oldRelativeAddend && targetSeg == oldSegment)
+                {
+                    data[entryOfs + 5] = (byte)newSegment;
+                    uint newRelativeAddend = newAbsoluteOffset - starts[newSegment];
+                    WriteU32(data, newRelativeAddend, entryOfs + 8);
+                }
+            }
+        }
+
+        public static int FindRelocationPatchIndex(byte[] data, uint writeToAbsolute)
+        {
+            uint[] starts = GetSegmentStartIndices(data);
+            int seg = GetSegmentForAddress(writeToAbsolute, data);
+            uint off = writeToAbsolute - starts[seg];
+            uint info = (off << 4) | (uint)seg;
+
+            uint patchTableOffset = ReadU32(data, 0x128);
+            uint patchTableCount = ReadU32(data, 0x12C);
+
+            for (int i = 0; i < (int)patchTableCount; i++)
+            {
+                if (ReadU32(data, (int)(patchTableOffset + i * 0x0C)) == info)
+                    return i;
+            }
+            return -1;
+        }
+
+        public static RelocationEntry GetRelocationEntry(byte[] data, int patchIndex)
+        {
+            uint patchTableOffset = ReadU32(data, 0x128);
+            int entryOfs = (int)(patchTableOffset + patchIndex * 0x0C);
+            uint[] starts = GetSegmentStartIndices(data);
+
+            uint info = ReadU32(data, entryOfs);
+            int writeSeg = (int)(info & 0xF);
+            uint writeOff = info >> 4;
+            int targetSeg = data[entryOfs + 5];
+            uint addend = ReadU32(data, entryOfs + 8);
+
+            var entry = new RelocationEntry
+            {
+                WriteTo = writeOff + starts[writeSeg],
+                PatchAddr = (uint)entryOfs,
+                Addend = addend,
+                TargetSeg = targetSeg,
+                Note = $"Patch #{patchIndex} (Seg {targetSeg})"
+            };
+            Array.Copy(data, entryOfs, entry.RawPatch, 0, 12);
+            return entry;
+        }
+
+        public static void UpdatePatchCount(byte[] data, uint newCount) => WriteU32(data, newCount, 0x12C);
+
+        public static AuditReport AuditIntegrity(byte[] data)
+        {
+            var report = new AuditReport();
+            try
+            {
+                uint segmentTableOffset = ReadU32(data, 0xC8);
+                uint codeLen = ReadU32(data, (int)segmentTableOffset + 4);
+                
+                // 1. Check for Expansion (Heuristic: USUM code.bin/battle.cro typical sizes)
+                // A better check: is the current length > standard?
+                // For now, let's look for large gaps of 0x00 or 0xCC at the end of text
+                report.IsExpanded = codeLen > 0x14B000; // Battle.cro stock is typically around this
+                
+                // 2. Verify Hashes
+                byte[] currentHashes = new byte[0x80];
+                Array.Copy(data, 0x84, currentHashes, 0, 0x80);
+                byte[] freshHashes = RecalculateSegmentHashes(data);
+                report.HashValid = currentHashes.SequenceEqual(freshHashes);
+                
+                // 3. Relocation Table Health
+                uint patchTableOffset = ReadU32(data, 0x128);
+                uint patchTableCount = ReadU32(data, 0x12C);
+                report.RelocationsIntact = patchTableOffset != 0 && patchTableOffset < data.Length && patchTableCount < 50000;
+                
+                report.Details = $"Segments: {codeLen:X} bytes code. {(report.IsExpanded ? "Expansion sandbox active." : "Standard layout.")}";
+                if (!report.HashValid) report.Details += " WARNING: SHA-256 Hash mismatch detected.";
+            }
+            catch (Exception ex) { report.Details = "Audit Failed: " + ex.Message; }
+            return report;
+        }
+
+        public static string GetCROHeaderSummary(byte[] data)
+        {
+            uint[] starts = GetSegmentStartIndices(data);
+            uint patchTbl = ReadU32(data, 0x128);
+            uint patchCnt = ReadU32(data, 0x12C);
+            uint nameOfs = ReadU32(data, 0x84);
+            uint fileSize = ReadU32(data, 0x90);
+            uint segmentTbl = ReadU32(data, 0xC8);
+
+            return $"--- CRO Header Summary ---\r\n" +
+                   $"File Size: 0x{fileSize:X}\r\n" +
+                   $"Name Offset: 0x{nameOfs:X}\r\n" +
+                   $"Segment Table: 0x{segmentTbl:X}\r\n" +
+                   $"Patch Table: 0x{patchTbl:X} (Count: {patchCnt})\r\n" +
+                   $"--- Segments ---\r\n" +
+                   $".code:  0x{starts[0]:X}\r\n" +
+                   $".rodata: 0x{starts[1]:X}\r\n" +
+                   $".data:   0x{starts[2]:X}\r\n" +
+                   $".bss:    0x{starts[3]:X}";
+        }
+    }
+}

@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class MartEditor7UU
 {
@@ -47,6 +47,10 @@ partial class MartEditor7UU
         this.tabControl1 = new System.Windows.Forms.TabControl();
         this.tabPage1 = new System.Windows.Forms.TabPage();
         this.tabPage2 = new System.Windows.Forms.TabPage();
+        this.B_Add = new System.Windows.Forms.Button();
+        this.B_Del = new System.Windows.Forms.Button();
+        this.B_AddBP = new System.Windows.Forms.Button();
+        this.B_DelBP = new System.Windows.Forms.Button();
         this.CHK_XItems = new System.Windows.Forms.CheckBox();
         ((System.ComponentModel.ISupportInitialize)(this.dgv)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.dgvbp)).BeginInit();
@@ -63,9 +67,30 @@ partial class MartEditor7UU
         this.CB_Location.FormattingEnabled = true;
         this.CB_Location.Location = new System.Drawing.Point(60, 3);
         this.CB_Location.Name = "CB_Location";
-        this.CB_Location.Size = new System.Drawing.Size(254, 21);
+        this.CB_Location.Size = new System.Drawing.Size(155, 21);
         this.CB_Location.TabIndex = 0;
         this.CB_Location.SelectedIndexChanged += new System.EventHandler(this.ChangeIndexItem);
+        // 
+        // B_Add
+        // 
+        this.B_Add.Location = new System.Drawing.Point(220, 2);
+        this.B_Add.Name = "B_Add";
+        this.B_Add.Size = new System.Drawing.Size(40, 23);
+        this.B_Add.TabIndex = 305;
+        this.B_Add.Text = "Add";
+        this.B_Add.UseVisualStyleBackColor = true;
+        this.B_Add.Click += new System.EventHandler(this.B_Add_Click);
+        // 
+        // B_Del
+        // 
+        this.B_Del.Location = new System.Drawing.Point(265, 2);
+        this.B_Del.Name = "B_Del";
+        this.B_Del.Size = new System.Drawing.Size(40, 23);
+        this.B_Del.TabIndex = 306;
+        this.B_Del.Text = "Del";
+        this.B_Del.UseVisualStyleBackColor = true;
+        this.B_Del.Click += new System.EventHandler(this.B_Del_Click);
+        // 
         // 
         // dgv
         // 
@@ -160,9 +185,30 @@ partial class MartEditor7UU
         this.CB_LocationBPItem.FormattingEnabled = true;
         this.CB_LocationBPItem.Location = new System.Drawing.Point(60, 3);
         this.CB_LocationBPItem.Name = "CB_LocationBPItem";
-        this.CB_LocationBPItem.Size = new System.Drawing.Size(254, 21);
+        this.CB_LocationBPItem.Size = new System.Drawing.Size(155, 21);
         this.CB_LocationBPItem.TabIndex = 6;
         this.CB_LocationBPItem.SelectedIndexChanged += new System.EventHandler(this.ChangeIndexBPItem);
+        // 
+        // B_AddBP
+        // 
+        this.B_AddBP.Location = new System.Drawing.Point(220, 2);
+        this.B_AddBP.Name = "B_AddBP";
+        this.B_AddBP.Size = new System.Drawing.Size(40, 23);
+        this.B_AddBP.TabIndex = 307;
+        this.B_AddBP.Text = "Add";
+        this.B_AddBP.UseVisualStyleBackColor = true;
+        this.B_AddBP.Click += new System.EventHandler(this.B_Add_Click);
+        // 
+        // B_DelBP
+        // 
+        this.B_DelBP.Location = new System.Drawing.Point(265, 2);
+        this.B_DelBP.Name = "B_DelBP";
+        this.B_DelBP.Size = new System.Drawing.Size(40, 23);
+        this.B_DelBP.TabIndex = 308;
+        this.B_DelBP.Text = "Del";
+        this.B_DelBP.UseVisualStyleBackColor = true;
+        this.B_DelBP.Click += new System.EventHandler(this.B_Del_Click);
+        // 
         // 
         // dgvbp
         // 
@@ -224,6 +270,8 @@ partial class MartEditor7UU
         // 
         this.tabPage1.Controls.Add(this.L_Mart);
         this.tabPage1.Controls.Add(this.CB_Location);
+        this.tabPage1.Controls.Add(this.B_Add);
+        this.tabPage1.Controls.Add(this.B_Del);
         this.tabPage1.Controls.Add(this.dgv);
         this.tabPage1.Location = new System.Drawing.Point(4, 22);
         this.tabPage1.Name = "tabPage1";
@@ -236,6 +284,8 @@ partial class MartEditor7UU
         // tabPage2
         // 
         this.tabPage2.Controls.Add(this.CB_LocationBPItem);
+        this.tabPage2.Controls.Add(this.B_AddBP);
+        this.tabPage2.Controls.Add(this.B_DelBP);
         this.tabPage2.Controls.Add(this.label1);
         this.tabPage2.Controls.Add(this.dgvbp);
         this.tabPage2.Location = new System.Drawing.Point(4, 22);
@@ -305,4 +355,8 @@ partial class MartEditor7UU
     private System.Windows.Forms.TabPage tabPage1;
     private System.Windows.Forms.TabPage tabPage2;
     private System.Windows.Forms.CheckBox CHK_XItems;
+    private System.Windows.Forms.Button B_Add;
+    private System.Windows.Forms.Button B_Del;
+    private System.Windows.Forms.Button B_AddBP;
+    private System.Windows.Forms.Button B_DelBP;
 }

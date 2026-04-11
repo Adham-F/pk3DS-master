@@ -70,6 +70,13 @@ public sealed partial class Main : Form
         const string randset = RandSettings.FileName;
         if (File.Exists(randset))
             RandSettings.Load(File.ReadAllLines(randset));
+
+        WinFormsUtil.ApplyCyberSlateTheme(this, WinFormsUtil.IsCyberSlate);
+        
+        // Add Toggle to Options
+        var themeToggle = new ToolStripMenuItem("Dark mode") { CheckOnClick = true, Checked = WinFormsUtil.IsCyberSlate };
+        themeToggle.Click += Menu_CyberSlate_Click;
+        Menu_Options.DropDownItems.Add(themeToggle);
     }
 
     internal static GameConfig Config;
@@ -105,7 +112,7 @@ public sealed partial class Main : Form
         catch { WinFormsUtil.Alert("Unable to copy to Clipboard."); }
     }
 
-    private void L_Game_Click(object sender, EventArgs e) => new EnhancedRestore(Config).ShowDialog();
+    private void L_Game_Click(object sender, EventArgs e) { var ed = new EnhancedRestore(Config); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); }
 
     private void B_Open_Click(object sender, EventArgs e)
     {
@@ -138,6 +145,13 @@ public sealed partial class Main : Form
         Config.InitializeGameText();
         Properties.Settings.Default.Language = Language;
         Properties.Settings.Default.Save();
+    }
+
+    private void Menu_CyberSlate_Click(object sender, EventArgs e)
+    {
+        bool enabled = !WinFormsUtil.IsCyberSlate;
+        WinFormsUtil.IsCyberSlate = enabled;
+        WinFormsUtil.RefreshAllThemes();
     }
 
     private void Menu_Exit_Click(object sender, EventArgs e)
@@ -324,12 +338,11 @@ public sealed partial class Main : Form
                 {
                     if (ExeFSPath is not null)
                         Config.Initialize(RomFSPath, ExeFSPath, Language);
-                    Config.BackupFiles();
                 }
             }
             catch (Exception ex)
             {
-                WinFormsUtil.Error("Failed to load game data from romfs. Please double check your ROM dump is correct.", ex.Message);
+                WinFormsUtil.Error("Failed to initialize game logic.", ex.Message);
                 ResetStatus();
                 return;
             }
@@ -451,14 +464,14 @@ public sealed partial class Main : Form
                 romfs = [B_GameText, B_StoryText, B_Personal, B_Evolution, B_LevelUp, B_Wild, B_MegaEvo, B_EggMove, B_Trainer, B_Item, B_Move, B_Maison, B_TitleScreen, B_OWSE,
                 ];
                 exefs = [B_MoveTutor, B_TMHM, B_Mart, B_Pickup, B_OPower, B_ShinyRate];
-                cro = [B_TypeChart, B_Starter, B_Gift, B_Static];
+                cro = [B_TypeChart, B_Starter, B_Gift, B_Static, B_CROExpander, B_GlobalRepair];
                 B_MoveTutor.Visible = Config.ORAS; // Default false unless loaded
                 break;
             case 7:
                 romfs = [B_GameText, B_StoryText, B_Personal, B_Evolution, B_LevelUp, B_Wild, B_MegaEvo, B_EggMove, B_Trainer, B_Item, B_Move, B_Royal, B_Pickup, B_OWSE,
                 ];
                 exefs = [B_TM, B_TypeChart, B_ShinyRate];
-                cro = [B_Mart, B_MoveTutor, B_AbilityEditorAdv];
+                cro = [B_Mart, B_MoveTutor, B_CROExpander, B_GlobalRepair, B_ResearchCenter];
                 B_MoveTutor.Visible = Config.USUM;
 
                 if (Config.Version != GameVersion.SMDEMO)
@@ -532,6 +545,7 @@ public sealed partial class Main : Form
 
             RomFSPath = path;
             Config = cfg;
+            pk3DS.Core.Modding.ProjectState.SetRomFS(path);
             return true;
         }
         WinFormsUtil.Error("Folder does not contain an 'a' folder in the top level.");
@@ -652,7 +666,7 @@ public sealed partial class Main : Form
         {
             var g = Config.GARCGameText;
             string[][] files = Config.GameTextStrings;
-            Invoke(() => new TextEditor(files, "gametext").ShowDialog());
+            Invoke(() => { var ed = new TextEditor(files, "gametext"); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
             g.Files = TryWriteText(files, g);
             g.Save();
         }).Start();
@@ -666,7 +680,7 @@ public sealed partial class Main : Form
         {
             var g = Config.GetGARCData("storytext");
             string[][] files = g.Files.Select(file => new TextFile(Config, file).Lines).ToArray();
-            Invoke(() => new TextEditor(files, "storytext").ShowDialog());
+            Invoke(() => { var ed = new TextEditor(files, "storytext"); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
             g.Files = TryWriteText(files, g);
             g.Save();
         }).Start();
@@ -747,10 +761,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new MaisonEditor6(trd, trp, super).ShowDialog());
+                    Invoke(() => { var ed = new MaisonEditor6(trd, trp, super); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new MaisonEditor7(trd, trp, super).ShowDialog());
+                    Invoke(() => { var ed = new MaisonEditor7(trd, trp, super); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             trdata.Files = trd;
@@ -767,22 +781,38 @@ public sealed partial class Main : Form
         new Thread(() =>
         {
             byte[][] d = Config.GARCPersonal.Files;
+            var gl = Config.GARCLearnsets;
+            var ge = Config.GetGARCData("eggmove");
+            byte[][] l = gl.Files;
+            byte[][] eg = ge.Files;
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new PersonalEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new PersonalEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new PersonalEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new PersonalEditor7(d, l, eg); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             // Set Master Table back
-            for (int i = 0; i < d.Length - 1; i++)
-                d[i].CopyTo(d[^1], i * d[i].Length);
+            if (d.Length > 1)
+            {
+                int len = d[0].Length;
+                for (int i = 0; i < d.Length - 1; i++)
+                    d[i].CopyTo(d[^1], i * len);
+            }
 
             Config.GARCPersonal.Files = d;
             Config.GARCPersonal.Save();
             Config.InitializePersonal();
+
+            // Save any changes from jumps
+            gl.Files = l;
+            gl.Save();
+            Config.InitializeLearnset();
+            
+            ge.Files = eg;
+            ge.Save();
         }).Start();
     }
 
@@ -802,10 +832,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new RSTE(trd, trp).ShowDialog());
+                    Invoke(() => { var ed = new RSTE(trd, trp); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new SMTE(trd, trp).ShowDialog());
+                    Invoke(() => { var ed = new SMTE(trd, trp); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             trclass.Files = trc;
@@ -830,9 +860,9 @@ public sealed partial class Main : Form
                 case 6:
                     files = ["encdata"];
                     if (Config.ORAS)
-                        action = () => new RSWE().ShowDialog();
+                        action = () => { var ed = new RSWE(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); };
                     else if (Config.XY)
-                        action = () => new XYWE().ShowDialog();
+                        action = () => { var ed = new XYWE(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); };
                     else return;
 
                     Invoke((MethodInvoker)delegate { Enabled = false; });
@@ -853,7 +883,7 @@ public sealed partial class Main : Form
                     UpdateStatus($"GARC Get: {files[2]}... ");
                     var wd = Config.GetlzGARCData(files[2]);
                     UpdateStatus("Running SMWE... ");
-                    action = () => new SMWE(ed, zd, wd).ShowDialog();
+                    action = () => { var editor = new SMWE(ed, zd, wd); WinFormsUtil.ApplyTheme(editor); editor.ShowDialog(); };
                     Invoke(action);
 
                     UpdateStatus($"GARC Set: {files[0]}... ");
@@ -943,10 +973,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new EvolutionEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new EvolutionEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new EvolutionEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new EvolutionEditor7(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             g.Files = d;
@@ -963,13 +993,27 @@ public sealed partial class Main : Form
         {
             var g = Config.GetGARCData("megaevo");
             byte[][] d = g.Files;
+
+            // Auto-expand megaevo GARC to match personal GARC for custom forms
+            if (Config.Generation == 7)
+            {
+                int personalCount = Config.Personal.Table.Length;
+                if (d.Length < personalCount)
+                {
+                    int oldLen = d.Length;
+                    Array.Resize(ref d, personalCount);
+                    for (int i = oldLen; i < personalCount; i++)
+                        d[i] = new byte[16]; // Empty mega evo entry
+                }
+            }
+
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new MegaEvoEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new MegaEvoEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new MegaEvoEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new MegaEvoEditor7(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             g.Files = d;
@@ -988,10 +1032,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new ItemEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new ItemEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new ItemEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new ItemEditor7(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             g.Files = d;
@@ -1017,7 +1061,13 @@ public sealed partial class Main : Form
                     break;
                 case 7:
                     Moves = Mini.UnpackMini(g.GetFile(0), "WD");
-                    Invoke(() => new MoveEditor7(Moves).ShowDialog());
+                    Invoke(() => 
+                    {
+                        var editor = new MoveEditor7(Moves);
+                        WinFormsUtil.ApplyTheme(editor);
+                        editor.ShowDialog();
+                        Moves = editor.Files;
+                    });
                     g.Files = [Mini.PackMini(Moves, "WD")];
                     break;
             }
@@ -1036,10 +1086,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new LevelUpEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new LevelUpEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new LevelUpEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new LevelUpEditor7(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             Config.GARCLearnsets.Files = d;
@@ -1059,10 +1109,10 @@ public sealed partial class Main : Form
             switch (Config.Generation)
             {
                 case 6:
-                    Invoke(() => new EggMoveEditor6(d).ShowDialog());
+                    Invoke(() => { var ed = new EggMoveEditor6(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => new EggMoveEditor7(d).ShowDialog());
+                    Invoke(() => { var ed = new EggMoveEditor7(d); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                     break;
             }
             g.Files = d;
@@ -1156,7 +1206,7 @@ public sealed partial class Main : Form
                 break;
             case 7:
                 var pickup = Config.GetlzGARCData("pickup");
-                Invoke(() => new PickupEditor7(pickup).ShowDialog());
+                Invoke(() => { var ed = new PickupEditor7(pickup); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                 break;
         }
     }
@@ -1222,7 +1272,17 @@ public sealed partial class Main : Form
     {
         if (ThreadActive())
             return;
-        if (ExeFSPath != null) new ShinyRate().ShowDialog();
+        if (ExeFSPath != null) { var ed = new ShinyRate(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); }
+    }
+
+    private void B_ResearchCenter_Click(object sender, EventArgs e)
+    {
+        if (ThreadActive())
+            return;
+        if (Config.Version == GameVersion.USUM)
+            new ResearchCenter7().ShowDialog();
+        else
+            WinFormsUtil.Error("Compatibility Error", "Research Center is currently only optimized for Ultra Sun and Ultra Moon.");
     }
 
     // CRO Subform Items
@@ -1263,7 +1323,7 @@ public sealed partial class Main : Form
             WinFormsUtil.Error("File Missing!", "DllField.cro was not found in your RomFS folder!");
             return;
         }
-        new StarterEditor6().ShowDialog();
+        var ed = new StarterEditor6(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog();
     }
 
     private void B_TypeChart_Click(object sender, EventArgs e)
@@ -1274,18 +1334,26 @@ public sealed partial class Main : Form
         switch (Config.Generation)
         {
             case 6:
-                if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "CRO Editing causes crashes if you do not patch the RO module.", "In order to patch the RO module, your device must be running Custom Firmware (for example, Luma3DS).", "Continue anyway?"))
-                    return;
-                string CRO = Path.Combine(RomFSPath, "DllBattle.cro");
-                if (!File.Exists(CRO))
                 {
-                    WinFormsUtil.Error("File Missing!", "DllBattle.cro was not found in your RomFS folder!");
-                    return;
+                    if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "CRO Editing causes crashes if you do not patch the RO module.", "In order to patch the RO module, your device must be running Custom Firmware (for example, Luma3DS).", "Continue anyway?"))
+                        return;
+                    string CRO = Path.Combine(RomFSPath, "DllBattle.cro");
+                    if (!File.Exists(CRO))
+                    {
+                        WinFormsUtil.Error("File Missing!", "DllBattle.cro was not found in your RomFS folder!");
+                        return;
+                    }
+                    var ed6 = new TypeChart6(); 
+                    WinFormsUtil.ApplyTheme(ed6); 
+                    ed6.ShowDialog();
                 }
-                new TypeChart6().ShowDialog();
                 break;
             case 7:
-                new TypeChart7().ShowDialog();
+                {
+                    var ed7 = new TypeChart7(); 
+                    WinFormsUtil.ApplyTheme(ed7); 
+                    ed7.ShowDialog();
+                }
                 break;
         }
     }
@@ -1302,7 +1370,7 @@ public sealed partial class Main : Form
             WinFormsUtil.Error("File Missing!", "DllField.cro was not found in your RomFS folder!");
             return;
         }
-        new GiftEditor6().ShowDialog();
+        var ed = new GiftEditor6(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog();
     }
 
     private void B_Static_Click(object sender, EventArgs e)
@@ -1317,7 +1385,7 @@ public sealed partial class Main : Form
                 var esg = Config.GetGARCData("encounterstatic");
                 byte[][] es = esg.Files;
 
-                Invoke(() => new StaticEncounterEditor7(es).ShowDialog());
+                Invoke(() => { var ed = new StaticEncounterEditor7(es); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog(); });
                 esg.Files = es;
                 esg.Save();
             }).Start();
@@ -1332,19 +1400,14 @@ public sealed partial class Main : Form
             WinFormsUtil.Error("File Missing!", "DllField.cro was not found in your RomFS folder!");
             return;
         }
-        new StaticEncounterEditor6().ShowDialog();
+        var ed = new StaticEncounterEditor6(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog();
     }  
 
-    private void B_AbilityEditorAdv_Click(object sender, EventArgs e)
+    private void B_CROExpander_Click(object sender, EventArgs e)
     {
-        // Gen 7 CROs are located in the root RomFS directory
-        if (!File.Exists(Path.Combine(RomFSPath, "Battle.cro")))
-        {
-            WinFormsUtil.Error("Battle.cro is required to edit abilities but was not found in the RomFS root.");
+        if (ThreadActive())
             return;
-        }
-
-        new AbilityEditor7().ShowDialog();
+        new CROExpander().ShowDialog();
     }
 
     // CXI Building
@@ -1590,5 +1653,62 @@ public sealed partial class Main : Form
             return;
         }
         WinFormsUtil.Alert("Unable to set seed.");
+    }
+    private void B_GlobalRepair_Click(object sender, EventArgs e)
+    {
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "GLOBAL REPAIR UTILITY", 
+            "This will reset all address trackers and help you restore vanilla binaries to fix 'Jumbled' editor data. Proceed?") != DialogResult.Yes)
+            return;
+
+        // Phase 1: Tracker Reset
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Reset Trackers?", "Delete all .txt expansion address trackers in RomFS/ExeFS?") == DialogResult.Yes)
+        {
+            string[] trackerFiles = 
+            [
+                "mart_counts_ofs.txt", "tutor_counts_ofs.txt", "mart_items_ofs.txt", "mart_bp_ofs.txt", "mart_tutor_ofs.txt",
+                "mart_shop_offset.txt", "mart_code_offset.txt", "tutor_offset.txt"
+            ];
+
+            foreach (var f in trackerFiles)
+            {
+                string rPath = Path.Combine(RomFSPath, f);
+                string ePath = Path.Combine(ExeFSPath, f);
+                if (File.Exists(rPath)) File.Delete(rPath);
+                if (File.Exists(ePath)) File.Delete(ePath);
+            }
+            WinFormsUtil.Alert("Trackers reset.");
+        }
+
+        // Phase 2: Binary Restoration
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Restore Vanilla Files?", "Select vanilla binaries to overwrite current ones?") == DialogResult.Yes)
+        {
+            RepairFile("Shop.cro", RomFSPath);
+            RepairFile("code.bin", ExeFSPath);
+            RepairFile(".code.bin", ExeFSPath);
+        }
+
+        WinFormsUtil.Alert("Global Repair cycle finished. Please restart any open sub-editors.");
+    }
+
+    private void RepairFile(string fileName, string targetDir)
+    {
+        string targetPath = Path.Combine(targetDir, fileName);
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, $"Restore {fileName}?", $"Would you like to select a vanilla {fileName} to restore?") != DialogResult.Yes)
+            return;
+
+        using (OpenFileDialog ofd = new OpenFileDialog { Title = $"Select Vanilla {fileName}", Filter = $"{fileName}|{fileName}|All Files (*.*)|*.*" })
+        {
+            if (ofd.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                File.Copy(ofd.FileName, targetPath, true);
+                WinFormsUtil.Alert($"Restored {fileName} successfully.");
+            }
+            catch (Exception ex)
+            {
+                WinFormsUtil.Error($"Failed to restore {fileName}: " + ex.Message);
+            }
+        }
     }
 }
