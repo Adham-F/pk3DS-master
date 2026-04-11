@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class MoveEditor7
 {
@@ -71,7 +71,6 @@ partial class MoveEditor7
         this.L_Stage1 = new System.Windows.Forms.Label();
         this.L_Targeting = new System.Windows.Forms.Label();
         this.L_Influcts = new System.Windows.Forms.Label();
-        this.RTB = new System.Windows.Forms.RichTextBox();
         this.CB_Targeting = new System.Windows.Forms.ComboBox();
         this.CB_Inflict = new System.Windows.Forms.ComboBox();
         this.L_Inflict = new System.Windows.Forms.Label();
@@ -642,16 +641,6 @@ partial class MoveEditor7
         this.L_Influcts.Text = "Inflicts:";
         this.L_Influcts.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
         // 
-        // RTB
-        // 
-        this.RTB.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-        this.RTB.Location = new System.Drawing.Point(12, 370);
-        this.RTB.Name = "RTB";
-        this.RTB.ReadOnly = true;
-        this.RTB.Size = new System.Drawing.Size(316, 51);
-        this.RTB.TabIndex = 38;
-        this.RTB.Text = "";
-        // 
         // CB_Targeting
         // 
         this.CB_Targeting.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -908,10 +897,10 @@ partial class MoveEditor7
         this.RTB_MoveDesc.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(25)))), ((int)(((byte)(35)))));
         this.RTB_MoveDesc.BorderStyle = System.Windows.Forms.BorderStyle.None;
         this.RTB_MoveDesc.ForeColor = System.Drawing.Color.LightCyan;
-        this.RTB_MoveDesc.Location = new System.Drawing.Point(10, 480);
+        this.RTB_MoveDesc.Location = new System.Drawing.Point(12, 370);
         this.RTB_MoveDesc.Name = "RTB_MoveDesc";
         this.RTB_MoveDesc.ReadOnly = true;
-        this.RTB_MoveDesc.Size = new System.Drawing.Size(320, 60);
+        this.RTB_MoveDesc.Size = new System.Drawing.Size(316, 160);
         this.RTB_MoveDesc.TabIndex = 200;
         this.RTB_MoveDesc.Text = "Move Description Load...";
         // 
@@ -1162,7 +1151,6 @@ partial class MoveEditor7
         this.tpEditor.Controls.Add(this.L_Inflict);
         this.tpEditor.Controls.Add(this.CB_Inflict);
         this.tpEditor.Controls.Add(this.CB_Targeting);
-        this.tpEditor.Controls.Add(this.RTB);
         this.tpEditor.Controls.Add(this.L_Targeting);
         this.tpEditor.Controls.Add(this.L_Influcts);
         this.tpEditor.Controls.Add(this.GB_Stat);
@@ -1321,7 +1309,6 @@ partial class MoveEditor7
     private System.Windows.Forms.Label L_Stage1;
     private System.Windows.Forms.Label L_Targeting;
     private System.Windows.Forms.Label L_Influcts;
-    private System.Windows.Forms.RichTextBox RTB;
     private System.Windows.Forms.ComboBox CB_Targeting;
     private System.Windows.Forms.ComboBox CB_Inflict;
     private System.Windows.Forms.Label L_Inflict;

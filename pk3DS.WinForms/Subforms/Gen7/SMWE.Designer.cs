@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class SMWE
 {
@@ -375,7 +375,7 @@ partial class SMWE
         // 
         // B_Randomize
         // 
-        this.B_Randomize.Location = new System.Drawing.Point(812, 11);
+        this.B_Randomize.Location = new System.Drawing.Point(992, 11);
         this.B_Randomize.Name = "B_Randomize";
         this.B_Randomize.Size = new System.Drawing.Size(102, 23);
         this.B_Randomize.TabIndex = 421;
@@ -385,7 +385,7 @@ partial class SMWE
         // 
         // B_Dump
         // 
-        this.B_Dump.Location = new System.Drawing.Point(920, 11);
+        this.B_Dump.Location = new System.Drawing.Point(1100, 11);
         this.B_Dump.Name = "B_Dump";
         this.B_Dump.Size = new System.Drawing.Size(108, 23);
         this.B_Dump.TabIndex = 420;
@@ -404,7 +404,7 @@ partial class SMWE
         // 
         // B_Save
         // 
-        this.B_Save.Location = new System.Drawing.Point(558, 11);
+        this.B_Save.Location = new System.Drawing.Point(738, 11);
         this.B_Save.Name = "B_Save";
         this.B_Save.Size = new System.Drawing.Size(135, 23);
         this.B_Save.TabIndex = 418;
@@ -426,7 +426,7 @@ partial class SMWE
         // 
         // NUP_Min
         // 
-        this.NUP_Min.Location = new System.Drawing.Point(434, 14);
+        this.NUP_Min.Location = new System.Drawing.Point(400, 14);
         this.NUP_Min.Minimum = new decimal(new int[] {
             1,
             0,
@@ -463,7 +463,7 @@ partial class SMWE
         // L_Min
         // 
         this.L_Min.AutoSize = true;
-        this.L_Min.Location = new System.Drawing.Point(406, 16);
+        this.L_Min.Location = new System.Drawing.Point(365, 16);
         this.L_Min.Name = "L_Min";
         this.L_Min.Size = new System.Drawing.Size(24, 13);
         this.L_Min.TabIndex = 425;
@@ -472,7 +472,7 @@ partial class SMWE
         // L_Max
         // 
         this.L_Max.AutoSize = true;
-        this.L_Max.Location = new System.Drawing.Point(478, 16);
+        this.L_Max.Location = new System.Drawing.Point(470, 16);
         this.L_Max.Name = "L_Max";
         this.L_Max.Size = new System.Drawing.Size(27, 13);
         this.L_Max.TabIndex = 426;
@@ -3124,7 +3124,7 @@ partial class SMWE
         // 
         // B_Export
         // 
-        this.B_Export.Location = new System.Drawing.Point(1034, 11);
+        this.B_Export.Location = new System.Drawing.Point(1214, 11);
         this.B_Export.Name = "B_Export";
         this.B_Export.Size = new System.Drawing.Size(112, 23);
         this.B_Export.TabIndex = 432;
@@ -3133,7 +3133,7 @@ partial class SMWE
         this.B_Export.Click += new System.EventHandler(this.B_Export_Click);
 
         // B_ImportTSV
-        this.B_ImportTSV.Location = new System.Drawing.Point(370, 11);
+        this.B_ImportTSV.Location = new System.Drawing.Point(550, 11);
         this.B_ImportTSV.Name = "B_ImportTSV";
         this.B_ImportTSV.Size = new System.Drawing.Size(85, 23);
         this.B_ImportTSV.Text = "Import TSV";
@@ -3141,7 +3141,7 @@ partial class SMWE
         this.B_ImportTSV.Click += new System.EventHandler(this.B_ImportTSV_Click);
 
         // B_ExportTSV
-        this.B_ExportTSV.Location = new System.Drawing.Point(460, 11);
+        this.B_ExportTSV.Location = new System.Drawing.Point(640, 11);
         this.B_ExportTSV.Name = "B_ExportTSV";
         this.B_ExportTSV.Size = new System.Drawing.Size(85, 23);
         this.B_ExportTSV.Text = "Export TSV";
@@ -3154,7 +3154,7 @@ partial class SMWE
         // 
         // CopySOS
         // 
-        this.CopySOS.Location = new System.Drawing.Point(698, 11);
+        this.CopySOS.Location = new System.Drawing.Point(878, 11);
         this.CopySOS.Name = "CopySOS";
         this.CopySOS.Size = new System.Drawing.Size(109, 23);
         this.CopySOS.TabIndex = 433;
@@ -3166,7 +3166,7 @@ partial class SMWE
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(1161, 612);
+        this.ClientSize = new System.Drawing.Size(1341, 612);
         this.Controls.Add(this.CopySOS);
         this.Controls.Add(this.B_Export);
         this.Controls.Add(this.CB_TableID);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -316,7 +316,7 @@ private void UpdatePanel(object sender, EventArgs e)
             var pnt = new PointF((40 * slot) + 10, 10);
             g.SetClip(new Rectangle((int)pnt.X, (int)pnt.Y, 40, 14), CombineMode.Replace);
             g.Clear(Color.Transparent);
-            g.DrawString($"{rate}%", font, Brushes.Black, pnt);
+            g.DrawString($"{rate}%", font, WinFormsUtil.IsCyberSlate ? Brushes.White : Brushes.Black, pnt);
         }
 
         cur_pb.Image = cur_img;
@@ -638,9 +638,10 @@ public static class Extensions
         var img = new Bitmap(10 * 40, 10 * 30);
         using var g = Graphics.FromImage(img);
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.SingleBitPerPixelGridFit;
+        var brush = WinFormsUtil.IsCyberSlate ? Brushes.White : Brushes.Black;
         for (int i = 0; i < table.Rates.Length; i++)
-            g.DrawString($"{table.Rates[i]}%", font, Brushes.Black, new PointF((40 * i) + 10, 10));
-        g.DrawString("Weather: ", font, Brushes.Black, new PointF(10, 280));
+            g.DrawString($"{table.Rates[i]}%", font, brush, new PointF((40 * i) + 10, 10));
+        g.DrawString("Weather: ", font, brush, new PointF(10, 280));
 
         // Draw Sprites
         for (int i = 0; i < table.Encounter7s.Length - 1; i++)
