@@ -44,7 +44,7 @@ Here are the newer features present in this specific fork of pk3DS:
 - "Copy Moves" and "Paste Moves" buttons that allow you to copy and paste moves from one Pokemon's learnset in Personal Data (i.e. TMs and Tutor Moves) to another. 
 - Visible stat changes and comparisons when editing a Pokemon's stats; note for this to function properly, you must load a vanilla file of either Ultra Sun or Ultra Moon first for the program to generate a .txt to reference as you change stats. This does come with a vanilla .txt of stat files, so if you want to replace that just delete the file and it'll generate a new one based on the personal data of your game's files.
 - "Copy Set" and "Paste Set" buttons that allow you to copy and paste the entire first tab of personal data from one Pokemon to another; this is convinient when you want to add new forms to the game.
-- "Set Catch" and "Set Hatch" functions to make Pokemon always be caught and hatch instantly (255), along with a "Set Hatch to 0" for making it harder to hatch; or potentially impossible to hatch? Not sure, that part is leftover code.
+- "Set Catch" and "Set Hatch" functions to make Pokemon always be caught instantly (255) for the former, and for making it hatch instantly for the latter (0).
 - "Jump to Level Up" and "Jump to Egg Moves" buttons for ease of editing movepools.
 
 # Level Up Moves and Egg Moves
