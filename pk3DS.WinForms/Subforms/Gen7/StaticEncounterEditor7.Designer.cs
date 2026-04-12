@@ -48,8 +48,6 @@ partial class StaticEncounterEditor7
         this.L_GSpecies = new System.Windows.Forms.Label();
         this.NUD_GLevel = new System.Windows.Forms.NumericUpDown();
         this.LB_Gift = new System.Windows.Forms.ListBox();
-        this.CB_EMap = new System.Windows.Forms.ComboBox();
-        this.L_EMap = new System.Windows.Forms.Label();
         this.Tab_Encounters = new System.Windows.Forms.TabPage();
         this.B_ClearSE = new System.Windows.Forms.Button();
         this.B_CurrentAttackSE = new System.Windows.Forms.Button();
@@ -470,8 +468,6 @@ partial class StaticEncounterEditor7
         this.Tab_Encounters.Controls.Add(this.B_HighAttackSE);
         this.Tab_Encounters.Controls.Add(this.CB_EGender);
         this.Tab_Encounters.Controls.Add(this.L_SOS1);
-        this.Tab_Encounters.Controls.Add(this.CB_EMap);
-        this.Tab_Encounters.Controls.Add(this.L_EMap);
         this.Tab_Encounters.Controls.Add(this.NUD_Ally1);
         this.Tab_Encounters.Controls.Add(this.L_SOS2);
         this.Tab_Encounters.Controls.Add(this.NUD_Ally2);
@@ -558,24 +554,7 @@ partial class StaticEncounterEditor7
         this.L_SOS1.TabIndex = 523;
         this.L_SOS1.Text = "SOS Ally 1:";
         this.L_SOS1.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-        // 
-        // CB_EMap
-        // 
-        this.CB_EMap.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-        this.CB_EMap.FormattingEnabled = true;
-        this.CB_EMap.Location = new System.Drawing.Point(465, 20);
-        this.CB_EMap.Name = "CB_EMap";
-        this.CB_EMap.Size = new System.Drawing.Size(180, 24);
-        this.CB_EMap.TabIndex = 601;
-        // 
-        // L_EMap
-        // 
-        this.L_EMap.Location = new System.Drawing.Point(350, 20);
-        this.L_EMap.Name = "L_EMap";
-        this.L_EMap.Size = new System.Drawing.Size(60, 20);
-        this.L_EMap.TabIndex = 600;
-        this.L_EMap.Text = "Location:";
-        this.L_EMap.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+
         // 
         // NUD_Ally1
         // 
@@ -2433,6 +2412,4 @@ partial class StaticEncounterEditor7
     private System.Windows.Forms.Button B_ClearSE;
     private System.Windows.Forms.Button B_CurrentAttackSE;
     private System.Windows.Forms.Button B_HighAttackSE;
-    private System.Windows.Forms.Label L_EMap;
-    private System.Windows.Forms.ComboBox CB_EMap;
 }

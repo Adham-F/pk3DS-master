@@ -393,6 +393,45 @@ private void B_PasteAll_Click(object sender, EventArgs e)
         WinFormsUtil.Alert("Exported all tables!");
     }
 
+    private void B_Import_Click(object sender, EventArgs e)
+    {
+        using var fbd = new FolderBrowserDialog();
+        if (fbd.ShowDialog() != DialogResult.OK) return;
+
+        string folder = fbd.SelectedPath;
+        string[] files = Directory.GetFiles(folder);
+
+        int count = 0;
+        foreach (string file in files)
+        {
+            if (!int.TryParse(Path.GetFileName(file), out int fileNum)) continue;
+
+            var area = Areas.FirstOrDefault(a => a.FileNumber == fileNum);
+            if (area == null) continue;
+
+            byte[] data = File.ReadAllBytes(file);
+            encdata[fileNum] = data;
+
+            area.Tables.Clear();
+            byte[][] tables = Mini.UnpackMini(data, "EA");
+            foreach (var t in tables)
+            {
+                if (t.Length < 0x168) continue;
+                area.Tables.Add(new EncounterTable(t.Skip(4).Take(0x164).ToArray()));
+                area.Tables.Add(new EncounterTable(t.Skip(0x168).ToArray()));
+            }
+            area.HasTables = area.Tables.Any(t => t.Data.Length > 0);
+            count++;
+        }
+
+        if (count > 0)
+        {
+            lastLoc = -1;
+            UpdatePanel(null, null);
+            WinFormsUtil.Alert($"Imported {count} tables!");
+        }
+    }
+
     private void DumpTables(object sender, EventArgs e)
     {
         using var sfd = new SaveFileDialog { FileName = "EncounterTables.txt" };

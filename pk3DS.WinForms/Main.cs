@@ -1220,7 +1220,7 @@ public sealed partial class Main : Form
         switch (Config.Generation)
         {
             case 6: new TMHMEditor6().Show(); break;
-            case 7: new TMEditor7().Show(); break;
+            case 7: { var ed = new TMEditor7(); WinFormsUtil.ApplyTheme(ed); ed.Show(); } break;
         }
     }
 
@@ -1239,7 +1239,7 @@ public sealed partial class Main : Form
                     return;
                 if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "CRO Editing causes crashes if you do not patch the RO module.", "In order to patch the RO module, your device must be running Custom Firmware (for example, Luma3DS).", "Continue anyway?"))
                     return;
-                if (RomFSPath != null) (Config.USUM ? new MartEditor7UU() : (Form)new MartEditor7()).Show();
+                if (RomFSPath != null) { var ed = Config.USUM ? new MartEditor7UU() : (Form)new MartEditor7(); WinFormsUtil.ApplyTheme(ed); ed.Show(); }
                 break;
         }
     }
@@ -1256,7 +1256,7 @@ public sealed partial class Main : Form
             case 7:
                 if (DialogResult.Yes != WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "CRO Editing causes crashes if you do not patch the RO module.", "In order to patch the RO module, your device must be running Custom Firmware (for example, Luma3DS).", "Continue anyway?"))
                     return;
-                if (RomFSPath != null) new TutorEditor7().Show();
+                if (RomFSPath != null) { var ed = new TutorEditor7(); WinFormsUtil.ApplyTheme(ed); ed.Show(); }
                 break;
         }
     }
@@ -1407,7 +1407,7 @@ public sealed partial class Main : Form
     {
         if (ThreadActive())
             return;
-        new CROExpander().ShowDialog();
+        var ed = new CROExpander(); WinFormsUtil.ApplyTheme(ed); ed.ShowDialog();
     }
 
     // CXI Building

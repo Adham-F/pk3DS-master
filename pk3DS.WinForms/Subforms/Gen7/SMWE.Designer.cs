@@ -262,6 +262,7 @@ partial class SMWE
         this.CB_Enc01 = new System.Windows.Forms.ComboBox();
         this.NUP_Rate1 = new System.Windows.Forms.NumericUpDown();
         this.CB_TableID = new System.Windows.Forms.ComboBox();
+        this.B_Import = new System.Windows.Forms.Button();
         this.B_Export = new System.Windows.Forms.Button();
         this.B_ImportTSV = new System.Windows.Forms.Button();
         this.B_ExportTSV = new System.Windows.Forms.Button();
@@ -372,22 +373,16 @@ partial class SMWE
         ((System.ComponentModel.ISupportInitialize)(this.NUP_Forme01)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.NUP_Rate1)).BeginInit();
         this.SuspendLayout();
-        // 
-        // B_Randomize
-        // 
-        this.B_Randomize.Location = new System.Drawing.Point(992, 11);
+        this.B_Randomize.Location = new System.Drawing.Point(930, 11);
         this.B_Randomize.Name = "B_Randomize";
-        this.B_Randomize.Size = new System.Drawing.Size(102, 23);
+        this.B_Randomize.Size = new System.Drawing.Size(95, 23);
         this.B_Randomize.TabIndex = 421;
         this.B_Randomize.Text = "Randomize All";
         this.B_Randomize.UseVisualStyleBackColor = true;
         this.B_Randomize.Click += new System.EventHandler(this.B_Randomize_Click);
-        // 
-        // B_Dump
-        // 
-        this.B_Dump.Location = new System.Drawing.Point(1100, 11);
+        this.B_Dump.Location = new System.Drawing.Point(1030, 11);
         this.B_Dump.Name = "B_Dump";
-        this.B_Dump.Size = new System.Drawing.Size(108, 23);
+        this.B_Dump.Size = new System.Drawing.Size(95, 23);
         this.B_Dump.TabIndex = 420;
         this.B_Dump.Text = "Dump Tables";
         this.B_Dump.UseVisualStyleBackColor = true;
@@ -401,14 +396,11 @@ partial class SMWE
         this.L_Location.Size = new System.Drawing.Size(28, 13);
         this.L_Location.TabIndex = 419;
         this.L_Location.Text = "Loc:";
-        // 
-        // B_Save
-        // 
-        this.B_Save.Location = new System.Drawing.Point(738, 11);
+        this.B_Save.Location = new System.Drawing.Point(730, 11);
         this.B_Save.Name = "B_Save";
-        this.B_Save.Size = new System.Drawing.Size(135, 23);
+        this.B_Save.Size = new System.Drawing.Size(95, 23);
         this.B_Save.TabIndex = 418;
-        this.B_Save.Text = "Save Current Table";
+        this.B_Save.Text = "Save Table";
         this.B_Save.UseVisualStyleBackColor = true;
         this.B_Save.Click += new System.EventHandler(this.B_Save_Click);
         // 
@@ -3122,43 +3114,51 @@ partial class SMWE
         this.CB_TableID.TabIndex = 431;
         this.CB_TableID.SelectedIndexChanged += new System.EventHandler(this.UpdatePanel);
         // 
+        // B_Import
+        // 
+        this.B_Import.Location = new System.Drawing.Point(1130, 11);
+        this.B_Import.Name = "B_Import";
+        this.B_Import.Size = new System.Drawing.Size(95, 23);
+        this.B_Import.TabIndex = 433;
+        this.B_Import.Text = "Import Tables";
+        this.B_Import.UseVisualStyleBackColor = true;
+        this.B_Import.Click += new System.EventHandler(this.B_Import_Click);
+        // 
         // B_Export
         // 
-        this.B_Export.Location = new System.Drawing.Point(1214, 11);
+        this.B_Export.Location = new System.Drawing.Point(1230, 11);
         this.B_Export.Name = "B_Export";
-        this.B_Export.Size = new System.Drawing.Size(112, 23);
+        this.B_Export.Size = new System.Drawing.Size(95, 23);
         this.B_Export.TabIndex = 432;
         this.B_Export.Text = "Export Tables";
         this.B_Export.UseVisualStyleBackColor = true;
         this.B_Export.Click += new System.EventHandler(this.B_Export_Click);
-
+        // 
         // B_ImportTSV
+        // 
         this.B_ImportTSV.Location = new System.Drawing.Point(550, 11);
         this.B_ImportTSV.Name = "B_ImportTSV";
         this.B_ImportTSV.Size = new System.Drawing.Size(85, 23);
         this.B_ImportTSV.Text = "Import TSV";
         this.B_ImportTSV.UseVisualStyleBackColor = true;
         this.B_ImportTSV.Click += new System.EventHandler(this.B_ImportTSV_Click);
-
+        // 
         // B_ExportTSV
+        // 
         this.B_ExportTSV.Location = new System.Drawing.Point(640, 11);
         this.B_ExportTSV.Name = "B_ExportTSV";
         this.B_ExportTSV.Size = new System.Drawing.Size(85, 23);
         this.B_ExportTSV.Text = "Export TSV";
         this.B_ExportTSV.UseVisualStyleBackColor = true;
         this.B_ExportTSV.Click += new System.EventHandler(this.B_ExportTSV_Click);
-
-        // Make sure to add them to the parent control pool below!
-        this.Controls.Add(this.B_ImportTSV);
-        this.Controls.Add(this.B_ExportTSV);
         // 
         // CopySOS
         // 
-        this.CopySOS.Location = new System.Drawing.Point(878, 11);
+        this.CopySOS.Location = new System.Drawing.Point(830, 11);
         this.CopySOS.Name = "CopySOS";
-        this.CopySOS.Size = new System.Drawing.Size(109, 23);
-        this.CopySOS.TabIndex = 433;
-        this.CopySOS.Text = "Copy Initials to SOS";
+        this.CopySOS.Size = new System.Drawing.Size(95, 23);
+        this.CopySOS.TabIndex = 277;
+        this.CopySOS.Text = "Copy to SOS";
         this.CopySOS.UseVisualStyleBackColor = true;
         this.CopySOS.Click += new System.EventHandler(this.CopySOS_Click);
         // 
@@ -3169,6 +3169,9 @@ partial class SMWE
         this.ClientSize = new System.Drawing.Size(1341, 612);
         this.Controls.Add(this.CopySOS);
         this.Controls.Add(this.B_Export);
+        this.Controls.Add(this.B_Import);
+        this.Controls.Add(this.B_ExportTSV);
+        this.Controls.Add(this.B_ImportTSV);
         this.Controls.Add(this.CB_TableID);
         this.Controls.Add(this.GB_Encounters);
         this.Controls.Add(this.L_Table);
@@ -3342,6 +3345,7 @@ partial class SMWE
     private System.Windows.Forms.NumericUpDown NUP_Rate9;
     private System.Windows.Forms.ComboBox CB_TableID;
     private System.Windows.Forms.Button B_Export;
+    private System.Windows.Forms.Button B_Import;
     private System.Windows.Forms.NumericUpDown NUP_Forme20;
     private System.Windows.Forms.ComboBox CB_Enc20;
     private System.Windows.Forms.NumericUpDown NUP_Forme19;
