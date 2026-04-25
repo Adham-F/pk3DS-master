@@ -1,6 +1,6 @@
 </p>
 
-<h1 align="center">pk3DS (But Extremely Catered Towards USUM) </h1>
+<h1 align="center">pk3DS (But Extremely Catered Towards USUM) Version 2.0</h1>
 
 <br />
 
@@ -8,6 +8,8 @@ pk3DS is a ROM editor for all 3DS Pokémon games that utilizes a variety of tool
 using C# and primarily focuses on its randomizer to provide users with a fresh and new experience in the beloved Pokémon games. 
 
 This is a fork of pk3DS that is extremely catered towards USUM. It has a lot of features that the original pk3DS does not have to support and foster a better environment for hacking the games. Full credits to the original developers, and to ABZB for his ARM research.
+
+Documentation of the newer version comes soon!
 
 ## Table of contents
 
