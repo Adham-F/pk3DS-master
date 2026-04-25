@@ -3234,19 +3234,7 @@ partial class SMWE
         this.NUP_Rate1.Size = new System.Drawing.Size(41, 20);
         this.NUP_Rate1.TabIndex = 290;
         //
-        // B_Fill1st
-        //
-        this.B_Fill1st = new System.Windows.Forms.Button();
-        this.B_Fill1st.Location = new System.Drawing.Point(60, 15);
-        this.B_Fill1st.Size = new System.Drawing.Size(40, 18);
-        this.B_Fill1st.Text = "Fill";
-        this.B_Fill1st.UseVisualStyleBackColor = true;
-        this.B_Fill1st.Click += (s, e) => {
-            var val = this.NUP_Rate1.Value;
-            this.NUP_Rate2.Value = this.NUP_Rate3.Value = this.NUP_Rate4.Value = this.NUP_Rate5.Value = 
-            this.NUP_Rate6.Value = this.NUP_Rate7.Value = this.NUP_Rate8.Value = this.NUP_Rate9.Value = this.NUP_Rate10.Value = val;
-        };
-        this.GB_Encounters.Controls.Add(this.B_Fill1st);
+
         // CB_TableID
         // 
         this.CB_TableID.AutoCompleteMode = System.Windows.Forms.AutoCompleteMode.Suggest;
@@ -3690,7 +3678,7 @@ partial class SMWE
     private System.Windows.Forms.Button B_Exclusives;
     
     
-    private System.Windows.Forms.Button B_Fill1st; private System.Windows.Forms.PictureBox PB_Mascot;
+    private System.Windows.Forms.PictureBox PB_Mascot;
 }
 
 

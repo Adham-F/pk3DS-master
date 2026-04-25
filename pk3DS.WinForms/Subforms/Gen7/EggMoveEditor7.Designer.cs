@@ -34,8 +34,7 @@ partial class EggMoveEditor7
         this.RTB_Changelog = new System.Windows.Forms.RichTextBox();
         this.B_ImportJSON = new System.Windows.Forms.Button();
         this.B_ImportTS = new System.Windows.Forms.Button();
-        this.B_ModernGen8 = new System.Windows.Forms.Button();
-        this.B_ModernGen9 = new System.Windows.Forms.Button();
+
         this.dgv = new System.Windows.Forms.DataGridView();
         this.CB_Species = new System.Windows.Forms.ComboBox();
         this.L_Species = new System.Windows.Forms.Label();
@@ -103,8 +102,6 @@ partial class EggMoveEditor7
         this.tp_editor.Controls.Add(this.B_Goto);
         this.tp_editor.Controls.Add(this.B_ImportJSON);
         this.tp_editor.Controls.Add(this.B_ImportTS);
-        this.tp_editor.Controls.Add(this.B_ModernGen8);
-        this.tp_editor.Controls.Add(this.B_ModernGen9);
         this.tp_editor.Location = new System.Drawing.Point(4, 22);
         this.tp_editor.Name = "tp_editor";
         this.tp_editor.Padding = new System.Windows.Forms.Padding(3);
@@ -371,21 +368,6 @@ partial class EggMoveEditor7
         this.B_ImportTS.Size = new System.Drawing.Size(120, 23);
         this.B_ImportTS.Text = "Import .TS";
         this.B_ImportTS.Click += new System.EventHandler(this.B_ImportTS_Click);
-
-        // B_ModernGen8
-        this.B_ModernGen8.Location = new System.Drawing.Point(410, 280);
-        this.B_ModernGen8.Name = "B_ModernGen8";
-        this.B_ModernGen8.Size = new System.Drawing.Size(120, 23);
-        this.B_ModernGen8.Text = "Gen 8 Movepools";
-        this.B_ModernGen8.Click += new System.EventHandler(this.B_ModernGen8_Click);
-
-        // B_ModernGen9
-        this.B_ModernGen9.Location = new System.Drawing.Point(410, 310);
-        this.B_ModernGen9.Name = "B_ModernGen9";
-        this.B_ModernGen9.Size = new System.Drawing.Size(120, 23);
-        this.B_ModernGen9.Text = "Gen 9 Movepools";
-        this.B_ModernGen9.Click += new System.EventHandler(this.B_ModernGen9_Click);
-
         // 
         // EggMoveEditor7
         // 
@@ -419,8 +401,7 @@ partial class EggMoveEditor7
     private System.Windows.Forms.RichTextBox RTB_Changelog;
     private System.Windows.Forms.Button B_ImportJSON;
     private System.Windows.Forms.Button B_ImportTS;
-    private System.Windows.Forms.Button B_ModernGen8;
-    private System.Windows.Forms.Button B_ModernGen9;
+
     private System.Windows.Forms.DataGridView dgv;
     private System.Windows.Forms.ComboBox CB_Species;
     private System.Windows.Forms.Label L_Species;

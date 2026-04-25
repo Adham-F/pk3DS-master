@@ -448,60 +448,6 @@ private void B_ApplyModern_Click(object sender, EventArgs e)
         CB_Species.SelectedValue = (int)NUD_FormTable.Value;
     }
 
-    private void B_ModernGen8_Click(object sender, EventArgs e) => ApplyModernFromShowdown(8);
-    private void B_ModernGen9_Click(object sender, EventArgs e) => ApplyModernFromShowdown(9);
-
-    private void ApplyModernFromShowdown(int gen)
-    {
-        string path = Path.Combine(Application.StartupPath, "learnsets.txt");
-        if (!File.Exists(path)) { WinFormsUtil.Alert("learnsets.txt not found in application directory."); return; }
-        
-        string data = File.ReadAllText(path);
-        int count = 0;
-        foreach (ComboItem item in CB_Species.Items)
-        {
-            if ((int)item.Value == 0) continue;
-            int id = (int)item.Value;
-            string name = item.Text.Split('(')[0].Trim().ToLower().Replace(" ", "").Replace("-", "");
-            
-            // Search for "[name]: { learnset: {"
-            string searchWord = $"{name}: {{";
-            int idx = data.IndexOf(searchWord);
-            if (idx == -1) continue;
-
-            int learnStart = data.IndexOf("learnset: {", idx);
-            if (learnStart == -1) continue;
-            
-            int learnEnd = data.IndexOf("}", learnStart + 11); // Simple brace balancing needed?
-            // For now, let's find the closing brace by looking for the next species or double newline
-            int nextSpecies = data.IndexOf(": {", learnEnd);
-            if (nextSpecies == -1) nextSpecies = data.Length;
-
-            string learnRange = data.Substring(learnStart, nextSpecies - learnStart);
-            var newMoves = new List<int>();
-            
-            // Format: move: ["9M", "8L1", "7E"]
-            foreach (var line in learnRange.Split('\n'))
-            {
-                if (!line.Contains(": [")) continue;
-                string moveNameClean = line.Split(':')[0].Trim();
-                if (line.Contains($"\"{gen}E\"")) // Egg Move in target gen
-                {
-                    int moveId = Array.FindIndex(movelist, m => m.Replace(" ", "").Replace("-", "").Equals(moveNameClean, StringComparison.OrdinalIgnoreCase));
-                    if (moveId > 0 && !newMoves.Contains(moveId)) newMoves.Add(moveId);
-                }
-            }
-            if (newMoves.Count > 0)
-            {
-                entries[id].Moves = newMoves.ToArray();
-                count++;
-            }
-        }
-        GetList();
-        UpdateChangelog();
-        WinFormsUtil.Alert($"Applied Gen {gen} Egg Moves to {count} species.");
-    }
-
     private void B_ImportJSON_Click(object sender, EventArgs e) { /* Placeholder for complex JSON parsing */ WinFormsUtil.Alert("JSON Import logic coming soon!"); }
     private void B_ImportTS_Click(object sender, EventArgs e) { /* Placeholder for TS parsing */ WinFormsUtil.Alert(".TS Import logic coming soon!"); }
 
