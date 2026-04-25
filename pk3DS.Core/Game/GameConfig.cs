@@ -1,0 +1,327 @@
+using System;
+using System.IO;
+using System.Linq;
+using pk3DS.Core.CTR;
+using pk3DS.Core.Structures.PersonalInfo;
+using pk3DS.Core.Structures;
+
+namespace pk3DS.Core;
+
+public class GameConfig
+{
+    private const int FILECOUNT_XY = 271;
+    private const int FILECOUNT_ORASDEMO = 301;
+    private const int FILECOUNT_ORAS = 299;
+    private const int FILECOUNT_SMDEMO = 239;
+    private const int FILECOUNT_SM = 311;
+    private const int FILECOUNT_USUM = 333;
+    public readonly GameVersion Version = GameVersion.Invalid;
+
+    public GARCReference[] Files { get; private set; }
+    public TextVariableCode[] Variables { get; private set; }
+    public TextReference[] GameText { get; private set; }
+    public GameInfo Info { get; private set; }
+
+    /// <summary>
+    /// Whether or not to remap characters in text files to proper unicode. Defaults to false.
+    /// </summary>
+    /// <remarks>
+    /// This will enable the display of ♂ and ♀, but may interfere with text editing. Set this to true if you're not going to change any text, otherwise set it to false.
+    /// </remarks>
+    public bool RemapCharacters { get; set; } = false;
+
+    public GameConfig(int fileCount)
+    {
+        GameVersion game = fileCount switch
+        {
+            FILECOUNT_XY => GameVersion.XY,
+            FILECOUNT_ORASDEMO => GameVersion.ORASDEMO,
+            FILECOUNT_ORAS => GameVersion.ORAS,
+            FILECOUNT_SMDEMO => GameVersion.SMDEMO,
+            FILECOUNT_SM => GameVersion.SM,
+            FILECOUNT_USUM => GameVersion.USUM,
+            _ => GameVersion.Invalid,
+        };
+        if (game == GameVersion.Invalid)
+            return;
+
+        Version = game;
+    }
+
+    public GameConfig(GameVersion game)
+    {
+        Version = game;
+    }
+
+    private void GetGameData(GameVersion game)
+    {
+        switch (game)
+        {
+            case GameVersion.XY:
+                Files = GARCReference.GARCReference_XY;
+                Variables = TextVariableCode.VariableCodes_XY;
+                GameText = TextReference.GameText_XY;
+                break;
+
+            case GameVersion.ORASDEMO:
+            case GameVersion.ORAS:
+                Files = GARCReference.GARCReference_AO;
+                Variables = TextVariableCode.VariableCodes_AO;
+                GameText = TextReference.GameText_AO;
+                break;
+
+            case GameVersion.SMDEMO:
+                Files = GARCReference.GARCReference_SMDEMO;
+                Variables = TextVariableCode.VariableCodes_SM;
+                GameText = TextReference.GameText_SMDEMO;
+                break;
+            case GameVersion.SN:
+            case GameVersion.MN:
+            case GameVersion.SM:
+                Files = GARCReference.GARCReference_SN;
+                if (new FileInfo(Path.Combine(RomFS, GetGARCFileName("encdata"))).Length == 0)
+                    Files = GARCReference.GARCReference_MN;
+                Variables = TextVariableCode.VariableCodes_SM;
+                GameText = TextReference.GameText_SM;
+                break;
+            case GameVersion.US:
+            case GameVersion.UM:
+            case GameVersion.USUM:
+                Files = GARCReference.GARCReference_US;
+                if (new FileInfo(Path.Combine(RomFS, GetGARCFileName("encdata"))).Length == 0)
+                    Files = GARCReference.GARCReference_UM;
+                Variables = TextVariableCode.VariableCodes_SM;
+                GameText = TextReference.GameText_USUM;
+                break;
+        }
+    }
+
+    public void Initialize(string romFSpath, string exeFSpath, int lang)
+    {
+        RomFS = romFSpath;
+        ExeFS = exeFSpath;
+        Language = lang;
+        GetGameData(Version);
+        InitializeAll();
+    }
+
+    public void InitializeAll()
+    {
+        InitializePersonal();
+        InitializeLearnset();
+        InitializeGameText();
+        InitializeMoves();
+        InitializeEvos();
+        InitializeGameInfo();
+    }
+
+    public void InitializePersonal()
+    {
+        GARCPersonal = GetGARCData("personal");
+        Personal = new PersonalTable(GARCPersonal.GetFile(GARCPersonal.FileCount - 1), Version);
+    }
+
+    public void InitializeLearnset()
+    {
+        GARCLearnsets = GetGARCData("levelup");
+        switch (Generation)
+        {
+            case 6:
+                Learnsets = GARCLearnsets.Files.Select(file => new Learnset6(file)).ToArray();
+                break;
+            case 7:
+                Learnsets = GARCLearnsets.Files.Select(file => new Learnset6(file)).ToArray();
+                break;
+        }
+    }
+
+    public void InitializeGameText()
+    {
+        GARCGameText = GetGARCData("gametext");
+        GameTextStrings = GARCGameText.Files.Select(file => new TextFile(this, file, RemapCharacters).Lines).ToArray();
+    }
+
+    public void InitializeMoves()
+    {
+        GARCMoves = GetGARCData("move");
+        switch (Generation)
+        {
+            case 6:
+                if (XY)
+                    Moves = GARCMoves.Files.Select(file => new Move6(file)).ToArray();
+                if (ORAS)
+                    Moves = Mini.UnpackMini(GARCMoves.GetFile(0), "WD").Select(file => new Move6(file)).ToArray();
+                break;
+            case 7:
+                Moves = Mini.UnpackMini(GARCMoves.GetFile(0), "WD").Select(file => new Move7(file)).ToArray();
+                break;
+        }
+    }
+    public void InitializeEvos()
+    {
+        var g = GetGARCData("evolution");
+        byte[][] d = g.Files;
+        switch (Generation)
+        {
+            case 6:
+                Evolutions = d.Select(z => new EvolutionSet6(z)).ToArray();
+                break;
+            case 7:
+                Evolutions = d.Select(z => new EvolutionSet7(z)).ToArray();
+                break;
+        }
+    }
+
+    private void InitializeGameInfo()
+    {
+        Info = new GameInfo(this);
+    }
+
+    public LazyGARCFile GetlzGARCData(string file)
+    {
+        var gr = GetGARCReference(file);
+        if (gr == null) return null;
+        gr = gr.LanguageVariant ? gr.GetRelativeGARC(Language, gr.Name) : gr;
+        return new LazyGARCFile(GetlzGARC(file), gr, GetGARCPath(file));
+    }
+
+    public GARCFile GetGARCData(string file, bool skipRelative = false)
+    {
+        var gr = GetGARCReference(file);
+        if (gr == null) return null;
+        if (gr.LanguageVariant && !skipRelative)
+            gr = gr.GetRelativeGARC(Language, gr.Name);
+        return GetGARCByReference(gr);
+    }
+
+    public GARCFile GetGARCByReference(GARCReference gr)
+    {
+        try
+        {
+            return new(GetMemGARC(gr.Name), gr, GetGARCPath(gr.Name));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Failed to load GARC {gr.Name}: {ex.Message}");
+            return null;
+        }
+    }
+
+    public string GetGARCPath(string file)
+    {
+        var gr = GetGARCReference(file);
+        if (gr == null) return null;
+        gr = gr.LanguageVariant ? gr.GetRelativeGARC(Language, gr.Name) : gr;
+        string subloc = gr.Reference;
+        return Path.Combine(RomFS, subloc);
+    }
+
+    private GARC.MemGARC GetMemGARC(string file)
+    {
+        return new(File.ReadAllBytes(GetGARCPath(file)));
+    }
+
+    private GARC.LazyGARC GetlzGARC(string file)
+    {
+        return new(File.ReadAllBytes(GetGARCPath(file)));
+    }
+
+    public string RomFS, ExeFS;
+
+    public GARCReference GetGARCReference(string name) { return Files?.FirstOrDefault(f => f.Name == name); }
+    public TextVariableCode GetVariableCode(string name) { return Variables?.FirstOrDefault(v => v.Name == name); }
+    public TextVariableCode GetVariableName(int value) { return Variables?.FirstOrDefault(v => v.Code == value); }
+
+    private TextReference GetGameText(TextName name) { return GameText.FirstOrDefault(f => f.Name == name); }
+    public TextData GetTextData(TextName file) => new(GetText(file));
+
+    public string[] GetText(TextName file)
+    {
+        return (string[])GameTextStrings[GetGameText(file).Index].Clone();
+    }
+
+    public bool SetText(TextName file, string[] strings)
+    {
+        GameTextStrings[GetGameText(file).Index] = strings;
+        return true;
+    }
+
+    public string GetGARCFileName(string requestedGARC)
+    {
+        // Hardcoded overrides for Gen 7 detection stability (verified for USUM/SM)
+        if (Version == GameVersion.SN || Version == GameVersion.MN || Version == GameVersion.SM || Version == GameVersion.US || Version == GameVersion.UM || Version == GameVersion.USUM)
+        {
+            switch (requestedGARC)
+            {
+                case "menuicon": return USUM ? "a/0/6/2" : "a/0/9/3";
+                case "itemicon": return USUM ? "a/0/6/1" : "a/0/9/4";
+                case "owtrainer": return USUM ? "a/0/7/0" : "a/0/6/9";
+                case "levelup": return USUM ? "a/0/1/3" : "a/0/1/2";
+                case "move": return USUM ? "a/0/1/1" : "a/0/1/1";
+            }
+        }
+
+        var garc = GetGARCReference(requestedGARC);
+        if (garc == null)
+            return "NULL_REFERENCE";
+            
+        if (garc.LanguageVariant)
+            garc = garc.GetRelativeGARC(Language);
+
+        return garc.Reference;
+    }
+
+    public int Language { get; set; }
+
+    public GARCFile GARCPersonal, GARCLearnsets, GARCMoves, GARCGameText;
+    public PersonalTable Personal { get; private set; }
+    public Learnset[] Learnsets { get; private set; }
+    public string[][] GameTextStrings { get; private set; }
+    public Move[] Moves { get; private set; }
+    public EvolutionSet[] Evolutions { get; private set; }
+
+    public bool XY => Version == GameVersion.XY;
+    public bool ORAS => Version is GameVersion.ORAS or GameVersion.ORASDEMO;
+    public bool SM => Version is GameVersion.SM or GameVersion.SMDEMO;
+    public bool USUM => Version == GameVersion.USUM;
+    
+    public bool X => Version == GameVersion.X;
+    public bool Y => Version == GameVersion.Y;
+    public bool OR => Version == GameVersion.OR;
+    public bool AS => Version == GameVersion.AS;
+    public bool Sun => Version == GameVersion.SN;
+    public bool Moon => Version == GameVersion.MN;
+    public bool UltraSun => Version == GameVersion.US;
+    public bool UltraMoon => Version == GameVersion.UM;
+
+    public int VersionID => (int)Version;
+
+    public int MaxSpeciesID => XY || ORAS ? Legal.MaxSpeciesID_6 : SM ? Legal.MaxSpeciesID_7_SM : Legal.MaxSpeciesID_7_USUM;
+    public int GARCVersion => XY || ORAS ? GARC.VER_4 : GARC.VER_6;
+
+    public int Generation
+    {
+        get
+        {
+            if (XY || ORAS)
+                return 6;
+            if (SM || USUM)
+                return 7;
+            return -1;
+        }
+    }
+
+    public bool IsRebuildable(int fileCount)
+    {
+        return fileCount switch
+        {
+            FILECOUNT_XY => Version == GameVersion.XY,
+            FILECOUNT_ORAS => Version == GameVersion.ORAS,
+            FILECOUNT_ORASDEMO => Version == GameVersion.ORASDEMO,
+            FILECOUNT_SMDEMO => Version == GameVersion.SMDEMO,
+            FILECOUNT_SM => Version == GameVersion.SM,
+            FILECOUNT_USUM => Version == GameVersion.USUM,
+            _ => false,
+        };
+    }
+}

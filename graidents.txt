@@ -1,0 +1,14 @@
+background: linear-gradient(to right,
+  #4C69A2, /* Xerneas - image_0.png */
+  #A4101B, /* Yveltal - image_1.png */
+  #353535, /* Zygarde - image_2.png */
+  #F5E9D0, /* Dusk Mane Necrozma */
+  #B2DAE2, /* Dawn Wings Necrozma */
+  #FFF79F, /* Ultra Necrozma */
+  #FF6A01, /* Solgaleo */
+  #6B30C9, /* Lunala */
+  #DA1B22, /* Primal Groudon */
+  #3A16A9, /* Primal Kyogre */
+  #1F8464, /* Mega Rayquaza */
+  #E7935D  /* Deoxys */
+);

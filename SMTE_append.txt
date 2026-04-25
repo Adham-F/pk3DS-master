@@ -1,0 +1,102 @@
+
+    private void RefreshSetList()
+    {
+        CB_SetList.Items.Clear();
+        for (int i = 0; i < ShowdownSetManager.Sets.Count; i++)
+        {
+            var set = ShowdownSetManager.Sets[i];
+            string species = GetSpeciesFromSet(set.Content);
+            string display = string.IsNullOrWhiteSpace(set.Nickname) 
+                ? $"({species}) [{i + 1}]" 
+                : $"[{set.Nickname}] ({species})";
+            CB_SetList.Items.Add(display);
+        }
+    }
+
+    private string GetSpeciesFromSet(string content)
+    {
+        string firstLine = content.Split('\n')[0].Trim();
+        if (firstLine.Contains("@")) firstLine = firstLine.Split('@')[0].Trim();
+        if (firstLine.Contains("(")) firstLine = firstLine.Substring(0, firstLine.IndexOf("(")).Trim();
+        return firstLine;
+    }
+
+    private void B_SaveSet_Click(object sender, EventArgs e)
+    {
+        if (currentSlot < 0) return;
+        string set = GetExportString(Trainers[index].Pokemon[currentSlot]);
+        string nick = "Set " + (CB_SetList.Items.Count + 1);
+        ShowdownSetManager.AddSet(set, nick);
+        RefreshSetList();
+        WinFormsUtil.Alert("Set saved to storage!");
+    }
+
+    private void B_DeleteSet_Click(object sender, EventArgs e)
+    {
+        if (CB_SetList.SelectedIndex < 0) return;
+        ShowdownSetManager.RemoveSet(CB_SetList.SelectedIndex);
+        RefreshSetList();
+    }
+
+    private void CB_SetList_SelectedIndexChanged(object sender, EventArgs e)
+    {
+        if (CB_SetList.SelectedIndex < 0 || currentSlot < 0) return;
+        var set = ShowdownSetManager.Sets[CB_SetList.SelectedIndex];
+        var pk = Trainers[index].Pokemon[currentSlot];
+        ParseShowdownSet(set.Content, pk);
+        PopulateFieldsTP7(pk);
+        GetQuickFiller(pba[currentSlot], pk);
+    }
+
+    private string GetExportString(TrainerPoke7 pk)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"{specieslist[pk.Species]} @ {itemlist[pk.Item]}");
+        sb.AppendLine($"Ability: {abilitylist[Math.Min(abilitylist.Length-1, pk.Ability)]}");
+        sb.AppendLine($"Level: {pk.Level}");
+        sb.AppendLine($"EVs: {pk.EV_HP} HP / {pk.EV_ATK} Atk / {pk.EV_DEF} Def / {pk.EV_SPA} SpA / {pk.EV_SPD} SpD / {pk.EV_SPE} Spe");
+        sb.AppendLine($"{natures[pk.Nature]} Nature");
+        sb.AppendLine($"IVs: {pk.IV_HP} HP / {pk.IV_ATK} Atk / {pk.IV_DEF} Def / {pk.IV_SPA} SpA / {pk.IV_SPD} SpD / {pk.IV_SPE} Spe");
+        if (pk.Move1 > 0) sb.AppendLine($"- {movelist[pk.Move1]}");
+        if (pk.Move2 > 0) sb.AppendLine($"- {movelist[pk.Move2]}");
+        if (pk.Move3 > 0) sb.AppendLine($"- {movelist[pk.Move3]}");
+        if (pk.Move4 > 0) sb.AppendLine($"- {movelist[pk.Move4]}");
+        return sb.ToString();
+    }
+
+    private void B_ExportTeam_Click(object sender, EventArgs e)
+    {
+        if (index < 0) return;
+        var sb = new StringBuilder();
+        foreach (var pk in Trainers[index].Pokemon)
+            sb.AppendLine(GetExportString(pk));
+        Clipboard.SetText(sb.ToString());
+        WinFormsUtil.Alert("Team exported to clipboard!");
+    }
+
+    private void B_MaxIVsAll_Click(object sender, EventArgs e)
+    {
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Max all IVs for EVERY trainer's Pokémon?") != DialogResult.Yes) return;
+        foreach (var tr in Trainers)
+            foreach (var pk in tr.Pokemon)
+                pk.IV_HP = pk.IV_ATK = pk.IV_DEF = pk.IV_SPA = pk.IV_SPD = pk.IV_SPE = 31;
+        LoadEntry();
+        WinFormsUtil.Alert("All IVs maximized!");
+    }
+
+    private void B_DoublesAll_Click(object sender, EventArgs e)
+    {
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Set ALL battles to Double Battles?") != DialogResult.Yes) return;
+        foreach (var tr in Trainers) tr.Mode = BattleMode.Doubles;
+        LoadEntry();
+        WinFormsUtil.Alert("All battles set to Doubles!");
+    }
+
+    private void B_PokeChangeAll_Click(object sender, EventArgs e)
+    {
+        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Enable PokeChange AI for ALL trainers?") != DialogResult.Yes) return;
+        foreach (var tr in Trainers) tr.AI |= (1 << 6);
+        LoadEntry();
+        WinFormsUtil.Alert("PokeChange AI enabled for everyone!");
+    }
+}

@@ -1,0 +1,193 @@
+DOCUMENTATION OF POKEMON MOVE CHANGES (GEN 7-9)
+
+=========================================
+SECTION 1: GENERATION 7 TO GENERATION 8
+=========================================
+
+POWER CHANGES
+-----------------------------------------
+Move              Type      Cat.    Gen 7    Gen 8
+Multi-Attack      Normal    Phys    90       120
+Rapid Spin        Normal    Phys    20       50
+
+TARGETING CHANGES
+-----------------------------------------
+Howl: Previously targeted only the User. In Gen 8, it targets the User and all adjacent allies.
+
+=========================================
+SECTION 2: GENERATION 8 TO GENERATION 9
+=========================================
+
+POWER CHANGES
+-----------------------------------------
+Move              Type      Cat.    Gen 8    Gen 9
+Bitter Malice     Ghost     Spec    60       75
+Bleakwind Storm   Flying    Spec    95       100
+Chloroblast       Grass     Spec    120      150
+Dire Claw         Poison    Phys    60       80
+Esper Wing        Psychic   Spec    75       80
+Glacial Lance     Ice       Phys    130      120
+Grassy Glide      Grass     Phys    70       55
+Headlong Rush     Ground    Phys    100      120
+Luster Purge      Psychic   Spec    70       95
+Mist Ball         Psychic   Spec    70       95
+Raging Fury       Fire      Phys    90       120
+Sandsear Storm    Ground    Spec    95       100
+Springtide Storm  Fairy     Spec    95       100
+Triple Arrows     Fighting  Phys    50       90
+Wave Crash        Water     Phys    75       120
+Wicked Blow       Dark      Phys    80       75
+Wildbolt Storm    Electric  Spec    95       100
+
+PP CHANGES
+-----------------------------------------
+Move                                  Gen 8 PP    Gen 9 PP
+Recover / Roost / Slack Off /         10          5
+Soft-Boiled / Milk Drink / Shore Up
+Lunar Blessing / Rest                 10          5
+Barb Barrage / Bitter Malice          15          10
+Triple Arrows                         15          10
+Bleakwind / Sandsear / Wildbolt Storm 5           10
+Mountain Gale                         5           10
+
+TARGETING CHANGES
+-----------------------------------------
+Move              Gen 8 Target             Gen 9 Target
+Bleakwind Storm   Any adjacent Pokemon     All adjacent opponents
+Sandsear Storm    Any adjacent Pokemon     All adjacent opponents
+Springtide Storm  Any adjacent Pokemon     All adjacent opponents
+Wildbolt Storm    Any adjacent Pokemon     All adjacent opponents
+Mystical Power    Self                     Any adjacent Pokemon
+Raging Fury       Any adjacent Pokemon     Self (Thrash mechanics)
+
+CATEGORY & TYPE CHANGES
+-----------------------------------------
+Move              Category/Type Change
+Snap Trap         Changed from Grass-type to Steel-type.
+Double Hit        Changed from Status to Physical.
+Spikes            Changed from Physical to Status.
+
+ACCURACY CHANGES
+-----------------------------------------
+Move              Gen 8 Acc    Gen 9 Acc
+Mountain Gale     85%          100%
+
+
+SECTION 3: CHAMPIONS CHANGES
+
+BASE POWER (basePower: is the new BP)
+
+bonerush:
+	basePower: 30
+	oldBasePower: 25
+
+nightdaze:
+	basePower: 90
+	oldBasePower: 85
+
+geargrind:
+	basePower: 60
+	oldBasePower: 50
+
+firstimpression:
+	basePower: 100
+	oldBasePower: 90
+
+spiritshackle:
+	basePower: 90
+	oldBasePower: 80
+
+anchorshot:
+	basePower: 90
+	oldBasePower: 80
+
+firelash:
+	basePower: 90
+	oldBasePower: 80
+
+revelationdance:
+	basePower: 100
+	oldBasePower: 90
+
+tropkick:
+	basePower: 85
+	oldBasePower: 70
+
+beakblast:
+	basePower: 120
+	oldBasePower: 100
+
+dragonhammer:
+	basePower: 100
+	oldBasePower: 90
+
+snipeshot:
+	basePower: 85
+	oldBasePower: 80
+
+boltbeak:
+	basePower: 80
+	oldBasePower: 85
+
+fishiousrend:
+	basePower: 80
+	oldBasePower: 85
+
+appleacid:
+	basePower: 90
+	oldBasePower: 80
+
+gravapple:
+	basePower: 90
+	oldBasePower: 80
+
+astralbarrage:
+	basePower: 110
+	oldBasePower: 120
+
+psyshieldbash:
+	basePower: 90
+	oldBasePower: 70
+
+mountaingale:
+	basePower: 120
+	oldBasePower: 100
+
+infernalparade:
+	basePower: 65
+	oldBasePower: 60
+
+tripledive:
+	basePower: 35
+	oldBasePower: 30
+
+hyperdrill:
+	basePower: 120
+	oldBasePower: 100
+
+bloodmoon:
+	basePower: 130
+	oldBasePower: 140
+
+ACCURACY (accuracy: is the new BP)
+
+crabhammer:
+	accuracy: 95
+	oldAccuracy: 90
+
+geargrind:
+	accuracy: 90
+	oldAccuracy: 85
+
+clangoroussoul:
+	accuracy: 101
+	oldAccuracy: 100
+
+makeitrain:
+	accuracy: 95
+	oldAccuracy: 100
+
+syrupbomb:
+	accuracy: 90
+	oldAccuracy: 85
+

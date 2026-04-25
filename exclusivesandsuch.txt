@@ -1,0 +1,33 @@
+I. VERSION EXCLUSIVE POKEMON
+
+ULTRA SUN EXCLUSIVES:
+- Wild Encounters: Alolan Vulpix, Alolan Ninetales, Houndour, Houndoom, Cottonee, Whimsicott, Rufflet, Braviary, Passimian, Turtonator, Basculin (Red-Stripe).
+- Fossils: Omanyte, Omastar, Anorith, Armaldo, Cranidos, Rampardos, Tirtouga, Carracosta, Tyrunt, Tyrantrum.
+- Ultra Beasts: Buzzwole, Kartana, Blacephalon.
+- Legendaries: Ho-Oh, Raikou, Groudon, Latios, Dialga, Heatran, Reshiram, Tornadus, Xerneas.
+- Totem-Sized: Gumshoos, Alolan Marowak, Lurantis, Vikavolt, Ribombee.
+
+ULTRA MOON EXCLUSIVES:
+- Wild Encounters: Alolan Sandshrew, Alolan Sandslash, Electrike, Manectric, Petilil, Lilligant, Vullaby, Mandibuzz, Oranguru, Drampa, Basculin (Blue-Stripe).
+- Fossils: Kabuto, Kabutops, Lileep, Cradily, Shieldon, Bastiodon, Archen, Archeops, Amaura, Aurorus.
+- Ultra Beasts: Pheromosa, Celesteela, Stakataka.
+- Legendaries: Lugia, Entei, Kyogre, Latias, Palkia, Regigigas, Zekrom, Thundurus, Yveltal.
+- Totem-Sized: Alolan Raticate, Araquanid, Salazzle, Togedemaru, Kommo-o.
+
+II. EVENT-ONLY POKEMON
+These Pokemon were distributed via limited-time events or special codes.
+
+- Magearna: Still obtainable by scanning the special QR code after becoming Champion.
+- Partner Cap Pikachu: Still obtainable via QR code at Pikachu Valley.
+- Own Tempo Rockruff: (Evolves into Dusk Lycanroc) Originally an early-purchase event. Now only obtainable via trading or breeding.
+- Marshadow: Expired serial code event.
+- Zeraora: Expired serial code event.
+- Ash-Greninja: Obtained by transferring from the Sun/Moon Special Demo Version.
+
+III. TRANSFER-ONLY POKEMON
+The following must be moved from previous generations via Pokemon Bank.
+
+- Generation 1-6 Starters: (Bulbasaur, Charmander, Squirtle, Chikorita, Cyndaquil, Totodile, Treecko, Torchic, Mudkip, Turtwig, Chimchar, Piplup, Snivy, Tepig, Oshawott, Chespin, Fennekin, Froakie). Note: Some are available via Island Scan.
+- Mythical Pokemon: Mew, Celebi, Jirachi, Deoxys, Manaphy, Phione, Darkrai, Shaymin, Arceus, Victini, Keldeo, Meloetta, Genesect, Diancie, and Volcanion.
+- National Pokedex Entries: Any Pokemon from the National Dex not featured in the 403-entry Alola Pokedex must be transferred. Automatically populate this list, if you can.
+"""

@@ -1,0 +1,68 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+	
+  <ItemGroup>
+    <ProjectReference Include="..\pk3DS.Core\pk3DS.Core.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Content Include="Resources\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <EmbeddedResource Include="Resources\learnsets.txt" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <None Include="..\move_modernization.json">
+      <Link>move_modernization.json</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="Gee.External.Capstone" Version="2.3.0" />
+    <PackageReference Include="keystoneengine.csharp" Version="0.9.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\ARM Functions\**\*.xlsx">
+      <Link>Resources\Research\%(RecursiveDir)%(FileName)%(Extension)</Link>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <Target Name="CopyNativeDLLs" AfterTargets="AfterBuild">
+    <Copy SourceFiles="$(OutputPath)x64\keystone.dll" DestinationFolder="$(OutputPath)" Condition="Exists('$(OutputPath)x64\keystone.dll')" />
+    <Copy SourceFiles="$(OutputPath)x64\capstone.dll" DestinationFolder="$(OutputPath)" Condition="Exists('$(OutputPath)x64\capstone.dll')" />
+    <Copy SourceFiles="$(OutputPath)x86\keystone.dll" DestinationFolder="$(OutputPath)" Condition="Exists('$(OutputPath)x86\keystone.dll') AND !Exists('$(OutputPath)keystone.dll')" />
+  </Target>
+  
+</Project>

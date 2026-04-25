@@ -1,0 +1,20 @@
+﻿        static Bitmap GetSprite(int species, int form)
+        {
+            return species == 0
+                ? Properties.Resources.empty
+                : WinFormsUtil.GetSprite(species, form, 0, 0, Main.Config);
+        }
+
+        return img;
+    }
+
+    private void UpdateMascot(int species = -1, int form = 0)
+    {
+        if (species == -1)
+        {
+            species = (int)cb_spec[0][0].SelectedIndex;
+            form = (int)nup_spec[0][0].Value;
+        }
+        PB_Mascot.Image = WinFormsUtil.GetSprite(species, form, 0, 0, Main.Config);
+    }
+}
