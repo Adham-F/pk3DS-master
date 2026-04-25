@@ -672,7 +672,7 @@ public static class GARC
     public class MemGARC(byte[] data)
     {
         internal GARCFile garc = UnpackGARC(data);
-        internal byte[] Data = data;
+        public byte[] Data = data;
         public int FileCount => garc.fato.EntryCount;
 
         // Returns an individual file

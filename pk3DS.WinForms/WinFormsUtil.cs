@@ -13,8 +13,27 @@ namespace pk3DS.WinForms;
 
 public static class WinFormsUtil
 {
-    public static bool IsCyberSlate { get; set; } = true;
+    public enum VisualTheme { Dark, Grey }
+    public static VisualTheme CurrentTheme { get; set; } = VisualTheme.Dark;
+    public static bool IsCyberSlate => CurrentTheme == VisualTheme.Dark;
     public static bool ShowExtendedLogic { get; set; } = false;
+
+    public static Bitmap GetTypeIcon(int type)
+    {
+        string[] typeNames = ["Normal", "Fighting", "Flying", "Poison", "Ground", "Rock", "Bug", "Ghost", "Steel", "Fire", "Water", "Grass", "Electric", "Psychic", "Ice", "Dragon", "Dark", "Fairy"];
+        if (type < 0 || type >= typeNames.Length) return null;
+        string name = typeNames[type];
+        try
+        {
+            var assembly = typeof(WinFormsUtil).Assembly;
+            using var stream = assembly.GetManifestResourceStream($"pk3DS.WinForms.Resources.TypeIcons.{name}.png");
+            if (stream != null) return new Bitmap(stream);
+        }
+        catch { }
+        return null;
+    }
+
+    public static void ReportSave() => Main.Instance?.HandleFriendship(3);
     // Image Layering/Blending Utility
     public static Bitmap LayerImage(Image baseLayer, Image overLayer, int x, int y, double trans)
     {
@@ -77,12 +96,13 @@ public static class WinFormsUtil
     {
         if (species == 0)
             return Resources._0;
-        if (species > config.MaxSpeciesID)
+        
+        // Resilience: Handle cases where config isn't loaded yet
+        if (config != null && species > config.MaxSpeciesID)
             return Resources.unknown;
 
-        var file = GetResourceStringSprite(species, form, gender, config.Generation);
+        var file = GetResourceStringSprite(species, form, gender, config?.Generation ?? 7);
 
-        // Redrawing logic
         // Redrawing logic
         Bitmap baseImage = (Bitmap)Resources.ResourceManager.GetObject(file);
         if (IsTotemForm(species, form))
@@ -94,16 +114,22 @@ public static class WinFormsUtil
         }
         if (baseImage == null)
         {
-            if (species < config.MaxSpeciesID)
+            // Try to find the resource directly if the logic fails
+            baseImage = Resources.ResourceManager.GetObject(file) as Bitmap;
+
+            if (baseImage == null)
             {
-                baseImage = LayerImage(
-                    Resources.ResourceManager.GetObject("_" + species) as Image,
-                    Resources.unknown,
-                    0, 0, .5);
-            }
-            else
-            {
-                baseImage = Resources.unknown;
+                if (config != null && species < config.MaxSpeciesID)
+                {
+                    baseImage = LayerImage(
+                        Resources.ResourceManager.GetObject("_" + species) as Image,
+                        Resources.unknown,
+                        0, 0, .5);
+                }
+                else
+                {
+                    baseImage = Resources.unknown;
+                }
             }
         }
         if (shiny)
@@ -141,6 +167,94 @@ public static class WinFormsUtil
             return form - 2;
         return form - 1;
     }
+
+    public static Bitmap getIcon(int item, int _, GameConfig config)
+    {
+        return (Bitmap)Resources.ResourceManager.GetObject("item_" + item) ?? Resources.helditem;
+    }
+
+    public static Bitmap GetFriendshipIcon(int level)
+    {
+        // Simple procedural hearts for now or colors
+        var bmp = new Bitmap(32, 32);
+        using var g = Graphics.FromImage(bmp);
+        g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        Color c = level switch
+        {
+            1 => Color.LightPink,
+            2 => Color.DeepPink,
+            3 => Color.Red,
+            _ => Color.Gray
+        };
+        if (level == 0) return bmp; // Empty
+        
+        // Draw heart
+        using var brush = new SolidBrush(c);
+        g.FillEllipse(brush, 4, 8, 12, 12);
+        g.FillEllipse(brush, 16, 8, 12, 12);
+        Point[] points = [new Point(4,16), new Point(28,16), new Point(16,28)];
+        g.FillPolygon(brush, points);
+        return bmp;
+    }
+
+    private static Dictionary<string, (Color, Color)> Gradients;
+    public static void LoadGradients()
+    {
+        if (Gradients != null) return;
+        Gradients = new Dictionary<string, (Color, Color)>
+        {
+            ["Xerneas"] = (Color.FromArgb(30, 60, 100), Color.FromArgb(10, 20, 40)),
+            ["Yveltal"] = (Color.FromArgb(100, 20, 30), Color.FromArgb(40, 10, 10)),
+            ["Groudon"] = (Color.FromArgb(120, 40, 20), Color.FromArgb(50, 20, 10)),
+            ["Kyogre"] = (Color.FromArgb(20, 60, 120), Color.FromArgb(10, 30, 60)),
+            ["Solgaleo"] = (Color.FromArgb(140, 100, 40), Color.FromArgb(60, 40, 10)),
+            ["Lunala"] = (Color.FromArgb(60, 40, 100), Color.FromArgb(20, 10, 40)),
+            ["Necrozma"] = (Color.FromArgb(40, 40, 40), Color.FromArgb(10, 10, 10)),
+            ["Ultra Necrozma"] = (Color.FromArgb(160, 140, 60), Color.FromArgb(80, 70, 20)),
+            ["Rayquaza"] = (Color.FromArgb(40, 100, 60), Color.FromArgb(10, 40, 20)),
+            ["Deoxys"] = (Color.FromArgb(100, 40, 100), Color.FromArgb(40, 10, 40)),
+            ["Zygarde"] = (Color.FromArgb(60, 100, 40), Color.FromArgb(20, 40, 10)),
+        };
+
+        if (File.Exists("gradients.txt"))
+        {
+            foreach (var line in File.ReadAllLines("gradients.txt"))
+            {
+                var parts = line.Split(':');
+                if (parts.Length < 2) continue;
+                var colors = parts[1].Split(',');
+                if (colors.Length < 2) continue;
+                try {
+                    Gradients[parts[0].Trim()] = (ColorTranslator.FromHtml(colors[0].Trim()), ColorTranslator.FromHtml(colors[1].Trim()));
+                } catch { }
+            }
+        }
+    }
+
+    public static void ApplyGradient(Form f, string name)
+    {
+        LoadGradients();
+        if (!Gradients.TryGetValue(name, out var colors)) return;
+        
+        void UpdateBackground()
+        {
+            if (f.ClientRectangle.Width <= 0 || f.ClientRectangle.Height <= 0) return;
+            var bmp = new Bitmap(f.ClientRectangle.Width, f.ClientRectangle.Height);
+            using (var g = Graphics.FromImage(bmp))
+            using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(f.ClientRectangle, colors.Item1, colors.Item2, 45f))
+            {
+                g.FillRectangle(brush, f.ClientRectangle);
+            }
+            if (f.BackgroundImage != null) f.BackgroundImage.Dispose();
+            f.BackgroundImageLayout = ImageLayout.None;
+            f.BackgroundImage = bmp;
+        }
+
+        UpdateBackground();
+        f.Resize += (s, e) => UpdateBackground();
+    }
+    
+    public static void ApplyMidnightTheme(Control c) => ApplyCyberSlateTheme(c, VisualTheme.Dark);
 
     public static Bitmap ScaleImage(Bitmap rawImg, int s)
     {
@@ -265,137 +379,141 @@ public static class WinFormsUtil
         return s;
     }
 
-    public static void ApplyTheme(Form f) => ApplyCyberSlateTheme(f, IsCyberSlate);
+    public static void ApplyTheme(Form f) => ApplyCyberSlateTheme(f, CurrentTheme);
     public static void RefreshAllThemes()
     {
         foreach (Form f in Application.OpenForms)
-            ApplyCyberSlateTheme(f, IsCyberSlate);
+            ApplyCyberSlateTheme(f, CurrentTheme);
     }
 
-    public static void ApplyCyberSlateTheme(Form form, bool enabled)
+    public static void ApplyCyberSlateTheme(Form form, VisualTheme theme)
     {
-        if (enabled)
+        bool dark = theme == VisualTheme.Dark;
+        bool grey = theme == VisualTheme.Grey;
+
+        if (form.Name != "Main")
         {
-            form.BackColor = Color.FromArgb(20, 20, 30);
-            form.ForeColor = Color.WhiteSmoke;
+            form.BackColor = dark ? Color.FromArgb(18, 18, 24) : Color.FromArgb(45, 45, 48);
         }
-        else
-        {
-            form.BackColor = SystemColors.Control;
-            form.ForeColor = SystemColors.ControlText;
-        }
-        form.Font = new Font("Segoe UI", 9F);
+        form.ForeColor = dark ? Color.FromArgb(230, 230, 240) : Color.FromArgb(241, 241, 241);
+        form.Font = new Font("Segoe UI Semibold", 9F, FontStyle.Regular, GraphicsUnit.Point);
         
         foreach (Control c in form.Controls)
-            ApplyCyberSlateTheme(c, enabled);
+            ApplyCyberSlateTheme(c, theme);
             
         // Handle MenuStrips
         foreach (MenuStrip ms in form.Controls.OfType<MenuStrip>())
         {
-            if (enabled)
-            {
-                ms.BackColor = Color.FromArgb(45, 50, 65);
-                ms.ForeColor = Color.WhiteSmoke;
-            }
-            else
-            {
-                ms.BackColor = SystemColors.Control;
-                ms.ForeColor = SystemColors.ControlText;
-            }
+            ms.BackColor = dark ? Color.FromArgb(45, 50, 65) : Color.FromArgb(60, 60, 70);
+            ms.ForeColor = Color.WhiteSmoke;
             foreach (ToolStripMenuItem item in ms.Items)
-                ApplyThemeToMenuItem(item, enabled);
+                ApplyThemeToMenuItem(item, theme);
         }
     }
 
-    private static void ApplyCyberSlateTheme(Control c, bool enabled)
+    private static void ApplyCyberSlateTheme(Control c, VisualTheme theme)
     {
-        if (enabled)
+        bool dark = theme == VisualTheme.Dark;
+        bool grey = theme == VisualTheme.Grey;
+
+        if ((c is Panel || c is GroupBox || c is TabPage) && c.Name != "PNL_Sidebar")
         {
-            if (c is Panel || c is GroupBox || c is TabControl || c is TabPage)
-            {
-                c.BackColor = Color.FromArgb(20, 20, 30);
-                c.ForeColor = Color.WhiteSmoke;
-            }
-            else if (c is Label lbl)
-            {
-                lbl.ForeColor = Color.FromArgb(220, 220, 220);
-            }
-            else if (c is Button btn)
-            {
-                btn.FlatStyle = FlatStyle.Flat;
-                btn.BackColor = Color.FromArgb(45, 50, 65);
-                btn.ForeColor = Color.WhiteSmoke;
-                btn.FlatAppearance.BorderColor = Color.FromArgb(45, 50, 65); // Blend into background
-            }
-            else if (c is TextBoxBase tb)
-            {
-                tb.BackColor = Color.FromArgb(15, 15, 20);
-                tb.ForeColor = Color.LightGray;
-                tb.BorderStyle = BorderStyle.FixedSingle;
-            }
-            else if (c is ListControl lc)
-            {
-                lc.BackColor = Color.FromArgb(15, 15, 20);
-                lc.ForeColor = Color.LightGray;
-            }
-            else if (c is DataGridView dgv)
-            {
-                dgv.BackgroundColor = Color.FromArgb(20, 20, 30);
-                dgv.DefaultCellStyle.BackColor = Color.FromArgb(30, 30, 40);
-                dgv.DefaultCellStyle.ForeColor = Color.WhiteSmoke;
-                dgv.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(45, 50, 65);
-                dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.WhiteSmoke;
-                dgv.EnableHeadersVisualStyles = false;
-            }
+            c.BackColor = dark ? Color.FromArgb(20, 20, 30) : Color.FromArgb(55, 55, 60);
+            c.ForeColor = Color.WhiteSmoke;
+            if (c is TabPage tp) tp.UseVisualStyleBackColor = false;
         }
-        else // Revert to System
+        else if (c is Label lbl)
         {
-            c.BackColor = SystemColors.Control;
-            c.ForeColor = SystemColors.ControlText;
-            if (c is Button btn) btn.FlatStyle = FlatStyle.Standard;
-            if (c is TextBoxBase tb) tb.BorderStyle = BorderStyle.Fixed3D;
-            if (c is DataGridView dgv) 
-            {
-                dgv.BackgroundColor = SystemColors.AppWorkspace;
-                dgv.DefaultCellStyle.BackColor = SystemColors.Window;
-                dgv.DefaultCellStyle.ForeColor = SystemColors.ControlText;
-                dgv.EnableHeadersVisualStyles = true;
-            }
+            lbl.ForeColor = dark ? Color.FromArgb(220, 220, 220) : Color.FromArgb(235, 235, 235);
+        }
+        else if (c is PictureBox pb)
+        {
+            pb.BackColor = Color.Transparent;
+        }
+        else if (c is CheckBox chk)
+        {
+            chk.BackColor = Color.Transparent;
+        }
+        else if (c is Button btn)
+        {
+            btn.FlatStyle = FlatStyle.Flat;
+            btn.BackColor = dark ? Color.FromArgb(32, 34, 46) : Color.FromArgb(70, 70, 75);
+            btn.ForeColor = Color.WhiteSmoke;
+            btn.FlatAppearance.BorderColor = dark ? Color.FromArgb(60, 65, 85) : Color.FromArgb(90, 90, 95);
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.MouseOverBackColor = dark ? Color.FromArgb(50, 55, 75) : Color.FromArgb(85, 85, 90);
+            btn.Cursor = Cursors.Hand;
+        }
+        else if (c is TextBoxBase tb)
+        {
+            tb.BackColor = dark ? Color.FromArgb(12, 12, 18) : Color.FromArgb(40, 40, 45);
+            tb.ForeColor = Color.FromArgb(220, 220, 230);
+            tb.BorderStyle = BorderStyle.FixedSingle;
+        }
+        else if (c is ListControl lc)
+        {
+            lc.BackColor = dark ? Color.FromArgb(12, 12, 18) : Color.FromArgb(40, 40, 45);
+            lc.ForeColor = Color.FromArgb(220, 220, 230);
+        }
+        else if (c is ComboBox cb)
+        {
+            cb.BackColor = dark ? Color.FromArgb(25, 25, 35) : Color.FromArgb(50, 50, 55);
+            cb.ForeColor = Color.WhiteSmoke;
+            cb.FlatStyle = FlatStyle.Flat;
+        }
+        else if (c is ListBox lb)
+        {
+            lb.BackColor = dark ? Color.FromArgb(15, 15, 25) : Color.FromArgb(45, 45, 50);
+            lb.ForeColor = Color.WhiteSmoke;
+            lb.BorderStyle = BorderStyle.FixedSingle;
+        }
+        else if (c is DataGridView dgv)
+        {
+            dgv.BackgroundColor = dark ? Color.FromArgb(18, 18, 24) : Color.FromArgb(45, 45, 50);
+            dgv.DefaultCellStyle.BackColor = dark ? Color.FromArgb(24, 26, 36) : Color.FromArgb(50, 50, 55);
+            dgv.DefaultCellStyle.ForeColor = Color.WhiteSmoke;
+            dgv.ColumnHeadersDefaultCellStyle.BackColor = dark ? Color.FromArgb(40, 44, 60) : Color.FromArgb(65, 65, 70);
+            dgv.ColumnHeadersDefaultCellStyle.ForeColor = Color.WhiteSmoke;
+            dgv.GridColor = dark ? Color.FromArgb(45, 50, 65) : Color.FromArgb(70, 70, 75);
+            dgv.EnableHeadersVisualStyles = false;
+        }
+        
+        if (c is TabControl tc)
+        {
+            SetDoubleBuffered(tc);
+        }
+
+        // Glassmorphism effect for panels
+        if (c is Panel p && p.Name.Contains("Glass"))
+        {
+            p.BackColor = dark ? Color.FromArgb(180, 25, 25, 35) : Color.FromArgb(180, 50, 50, 60);
         }
 
         foreach (Control child in c.Controls)
-            ApplyCyberSlateTheme(child, enabled);
+            ApplyCyberSlateTheme(child, theme);
     }
 
-    private static void ApplyThemeToMenuItem(ToolStripMenuItem item, bool enabled)
+    private static void ApplyThemeToMenuItem(ToolStripMenuItem item, VisualTheme theme)
     {
-        if (enabled)
-        {
-            item.BackColor = Color.FromArgb(45, 50, 65);
-            item.ForeColor = Color.WhiteSmoke;
-        }
-        else
-        {
-            item.BackColor = SystemColors.Control;
-            item.ForeColor = SystemColors.ControlText;
-        }
+        bool dark = theme == VisualTheme.Dark;
+        item.BackColor = dark ? Color.FromArgb(45, 50, 65) : Color.FromArgb(60, 60, 70);
+        item.ForeColor = Color.WhiteSmoke;
 
         foreach (ToolStripItem sub in item.DropDownItems)
         {
-            if (enabled)
-            {
-                sub.BackColor = Color.FromArgb(45, 50, 65);
-                sub.ForeColor = Color.WhiteSmoke;
-            }
-            else
-            {
-                sub.BackColor = SystemColors.Control;
-                sub.ForeColor = SystemColors.ControlText;
-            }
+            sub.BackColor = dark ? Color.FromArgb(45, 50, 65) : Color.FromArgb(60, 60, 70);
+            sub.ForeColor = Color.WhiteSmoke;
 
             if (sub is ToolStripMenuItem tsmi)
-                ApplyThemeToMenuItem(tsmi, enabled);
+                ApplyThemeToMenuItem(tsmi, theme);
         }
+    }
+
+    public static void SetDoubleBuffered(Control c)
+    {
+        if (SystemInformation.TerminalServerSession) return;
+        System.Reflection.PropertyInfo propertyInfo = typeof(Control).GetProperty("DoubleBuffered", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        propertyInfo?.SetValue(c, true, null);
     }
 
     // Form Translation
@@ -509,7 +627,9 @@ public static class WinFormsUtil
         return MessageBox.Show(msg, "Prompt", btn, MessageBoxIcon.Asterisk);
     }
 
-    public static string GetInput(string title, string prompt)
+    public static string PromptInput(string title, string prompt, string defaultText = "") => GetInput(title, prompt, defaultText);
+
+    public static string GetInput(string title, string prompt, string defaultText = "")
     {
         Form form = new Form();
         Label label = new Label();
@@ -519,7 +639,7 @@ public static class WinFormsUtil
 
         form.Text = title;
         label.Text = prompt;
-        textBox.Text = "";
+        textBox.Text = defaultText;
 
         buttonOk.Text = "OK";
         buttonCancel.Text = "Cancel";
@@ -695,21 +815,18 @@ public static class WinFormsUtil
                     break;
             }
 
-            // Image is empty...
-            if (!foundPixel)
-                return null;
-
             // Find yMin
             for (int y = 0; y < data.Height; y++)
             {
                 bool stop = false;
-                for (int x = xMin; x < data.Width; x++)
+                for (int x = 0; x < data.Width; x++)
                 {
                     byte alpha = buffer[(y * data.Stride) + (4 * x) + 3];
                     if (alpha != 0)
                     {
                         yMin = y;
                         stop = true;
+                        foundPixel = true;
                         break;
                     }
                 }
@@ -717,11 +834,14 @@ public static class WinFormsUtil
                     break;
             }
 
+            if (!foundPixel)
+                return null;
+
             // Find xMax
             for (int x = data.Width - 1; x >= xMin; x--)
             {
                 bool stop = false;
-                for (int y = yMin; y < data.Height; y++)
+                for (int y = 0; y < data.Height; y++)
                 {
                     byte alpha = buffer[(y * data.Stride) + (4 * x) + 3];
                     if (alpha != 0)
@@ -739,7 +859,7 @@ public static class WinFormsUtil
             for (int y = data.Height - 1; y >= yMin; y--)
             {
                 bool stop = false;
-                for (int x = xMin; x <= xMax; x++)
+                for (int x = 0; x < data.Width; x++)
                 {
                     byte alpha = buffer[(y * data.Stride) + (4 * x) + 3];
                     if (alpha != 0)
@@ -753,7 +873,7 @@ public static class WinFormsUtil
                     break;
             }
 
-            srcRect = Rectangle.FromLTRB(xMin, yMin, xMax + 1, yMax + 1); // fixed; was cropping 1px too much on the max end
+            srcRect = new Rectangle(xMin, yMin, xMax - xMin + 1, yMax - yMin + 1);
         }
         finally
         {
@@ -761,17 +881,16 @@ public static class WinFormsUtil
                 source.UnlockBits(data);
         }
 
-        var dest = new Bitmap(srcRect.Width, srcRect.Height);
-        var destRect = srcRect with { X = 0, Y = 0 };
-        using var graphics = Graphics.FromImage(dest);
-        graphics.DrawImage(source, destRect, srcRect, GraphicsUnit.Pixel);
+        Bitmap dest = new Bitmap(srcRect.Width, srcRect.Height);
+        using (Graphics g = Graphics.FromImage(dest))
+            g.DrawImage(source, new Rectangle(0, 0, dest.Width, dest.Height), srcRect, GraphicsUnit.Pixel);
         return dest;
     }
 }
 
-// DataSource Providing
 public class ComboItem
 {
     public string Text { get; set; }
-    public object Value { get; set; }
+    public int Value { get; set; }
+    public override string ToString() => Text;
 }

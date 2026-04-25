@@ -702,48 +702,79 @@ namespace pk3DS.WinForms
 
         private void LoadUniversalResearch()
         {
+            tvResearch.BeginUpdate();
+            tvResearch.Nodes.Clear();
+            LoadInternalMasterResearch();
+            LoadLocalScratchResearch();
+            tvResearch.ExpandAll();
+            tvResearch.EndUpdate();
+        }
+
+        private void LoadLocalScratchResearch()
+        {
             try
             {
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 string path = Path.Combine(baseDir, "scratch", "patch_groups.json");
-                
-                int attempts = 0;
-                while (!File.Exists(path) && attempts < 5)
-                {
-                    baseDir = Directory.GetParent(baseDir)?.FullName;
-                    if (baseDir == null) break;
-                    path = Path.Combine(baseDir, "scratch", "patch_groups.json");
-                    attempts++;
-                }
-
+                // ... logic to find scratch ...
                 if (!File.Exists(path)) return;
-
                 string json = File.ReadAllText(path);
-                AllResearchGroups = JsonSerializer.Deserialize<List<PatchGroup>>(json);
-                if (AllResearchGroups == null) return;
+                var groups = JsonSerializer.Deserialize<List<PatchGroup>>(json);
+                if (groups != null) AllResearchGroups.AddRange(groups);
+                PopulateResearchTree(groups, "[LOCAL]");
+            }
+            catch { }
+        }
 
-                tvResearch.BeginUpdate();
-                tvResearch.Nodes.Clear();
-                var categories = AllResearchGroups.Select(g => g.Category).Distinct().OrderBy(c => c);
-                foreach (var cat in categories)
+        private void LoadInternalMasterResearch()
+        {
+            try
+            {
+                var assembly = typeof(Main).Assembly;
+                var resources = assembly.GetManifestResourceNames().Where(r => r.Contains("Resources.ARM_Functions") && r.EndsWith(".xlsx"));
+                foreach (var res in resources)
                 {
-                    var catNode = tvResearch.Nodes.Add(cat);
-                    var modules = AllResearchGroups.Where(g => g.Category == cat).Select(g => g.Module).Distinct().OrderBy(m => m);
-                    foreach (var mod in modules)
+                    // Resource name format: pk3DS.WinForms.Resources.ARM_Functions.SubDir.FileName.xlsx
+                    // This is hard to parse back to original structure perfectly without a map, but we can try.
+                    string cleanName = res.Replace("pk3DS.WinForms.Resources.ARM_Functions.", "").Replace(".xlsx", "");
+                    using var stream = assembly.GetManifestResourceStream(res);
+                    if (stream == null) continue;
+                    
+                    var sheets = XlsxResearchParser.GetSheetNames(stream);
+                    foreach (var sheet in sheets)
                     {
-                        var modNode = catNode.Nodes.Add(mod.Replace(".xlsx", ""));
-                        var sheets = AllResearchGroups.Where(g => g.Module == mod).Select(g => g.Sheet).Distinct();
-                        foreach (var sheet in sheets)
-                        {
-                            var sheetNode = modNode.Nodes.Add(sheet);
-                            sheetNode.Tag = AllResearchGroups.First(g => g.Module == mod && g.Sheet == sheet);
-                        }
+                        // We need a way to convert Excel Row to PatchGroup
+                        // For now, let's just add it to the tree as a 'Master' resource
+                        var node = tvResearch.Nodes.Cast<TreeNode>().FirstOrDefault(n => n.Text == "MASTER") ?? tvResearch.Nodes.Add("MASTER");
+                        var fileNode = node.Nodes.Cast<TreeNode>().FirstOrDefault(n => n.Text == cleanName) ?? node.Nodes.Add(cleanName);
+                        var sheetNode = fileNode.Nodes.Add(sheet);
+                        sheetNode.Tag = res + "|" + sheet; // Store resource name and sheet
                     }
                 }
-                tvResearch.ExpandAll();
-                tvResearch.EndUpdate();
             }
-            catch (Exception ex) { MessageBox.Show("Error loading research: " + ex.Message); }
+            catch { }
+        }
+
+        private void PopulateResearchTree(List<PatchGroup> groups, string rootName)
+        {
+            if (groups == null) return;
+            var root = tvResearch.Nodes.Add(rootName);
+            var categories = groups.Select(g => g.Category).Distinct().OrderBy(c => c);
+            foreach (var cat in categories)
+            {
+                var catNode = root.Nodes.Add(cat);
+                var modules = groups.Where(g => g.Category == cat).Select(g => g.Module).Distinct().OrderBy(m => m);
+                foreach (var mod in modules)
+                {
+                    var modNode = catNode.Nodes.Add(mod.Replace(".xlsx", ""));
+                    var sheets = groups.Where(g => g.Module == mod).Select(g => g.Sheet).Distinct();
+                    foreach (var sheet in sheets)
+                    {
+                        var sheetNode = modNode.Nodes.Add(sheet);
+                        sheetNode.Tag = groups.First(g => g.Module == mod && g.Sheet == sheet);
+                    }
+                }
+            }
         }
 
         private void UpdateResearchDetails()

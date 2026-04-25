@@ -284,6 +284,14 @@ public class GameConfig
     public bool ORAS => Version is GameVersion.ORAS or GameVersion.ORASDEMO;
     public bool SM => Version is GameVersion.SM or GameVersion.SMDEMO;
     public bool USUM => Version == GameVersion.USUM;
+    public bool X => Version == GameVersion.X;
+    public bool Y => Version == GameVersion.Y;
+    public bool AS => Version == GameVersion.AS;
+    public bool OR => Version == GameVersion.OR;
+    public bool Sun => Version == GameVersion.SN;
+    public bool Moon => Version == GameVersion.MN;
+    public bool UltraSun => Version == GameVersion.US;
+    public bool UltraMoon => Version == GameVersion.UM;
     public int MaxSpeciesID => XY || ORAS ? Legal.MaxSpeciesID_6 : SM ? Legal.MaxSpeciesID_7_SM : Legal.MaxSpeciesID_7_USUM;
     public int GARCVersion => XY || ORAS ? GARC.VER_4 : GARC.VER_6;
 

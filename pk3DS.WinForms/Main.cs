@@ -16,6 +16,8 @@
 using pk3DS.Core;
 using pk3DS.Core.CTR;
 using pk3DS.Core.Structures.PersonalInfo;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,8 +30,22 @@ namespace pk3DS.WinForms;
 
 public sealed partial class Main : Form
 {
+    private System.Windows.Forms.PictureBox PB_Sprite = new System.Windows.Forms.PictureBox();
+    private System.Windows.Forms.Label L_MascotQuote = new System.Windows.Forms.Label();
+    private System.Windows.Forms.PictureBox PB_GameIcon = new System.Windows.Forms.PictureBox();
+    private System.Windows.Forms.Label L_Version = new System.Windows.Forms.Label();
+    private System.Windows.Forms.Label L_MascotThought = new System.Windows.Forms.Label();
+    private System.Windows.Forms.PictureBox PB_Friendship = new System.Windows.Forms.PictureBox();
+    private System.Windows.Forms.Panel PNL_MascotGlass = new System.Windows.Forms.Panel();
+    private System.Windows.Forms.Panel PNL_Sidebar = new System.Windows.Forms.Panel();
+    private System.Windows.Forms.Button B_Store = new System.Windows.Forms.Button();
+    private string[] Quotes;
+    private Color GradientStart = Color.FromArgb(45, 25, 60);
+    private Color GradientEnd = Color.FromArgb(30, 30, 30);
+    public static Main Instance;
     public Main()
     {
+        Instance = this;
         // Initialize the Main Form
         InitializeComponent();
 
@@ -70,13 +86,41 @@ public sealed partial class Main : Form
         const string randset = RandSettings.FileName;
         if (File.Exists(randset))
             RandSettings.Load(File.ReadAllLines(randset));
+        else
+        {
+            try
+            {
+                var assembly = typeof(Main).Assembly;
+                using var stream = assembly.GetManifestResourceStream("pk3DS.WinForms.Resources.randsettings.txt");
+                if (stream != null)
+                {
+                    using var reader = new StreamReader(stream);
+                    var lines = reader.ReadToEnd().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    RandSettings.Load(lines);
+                }
+            }
+            catch { }
+        }
 
-        WinFormsUtil.ApplyCyberSlateTheme(this, WinFormsUtil.IsCyberSlate);
+        WinFormsUtil.ApplyTheme(this);
+        WinFormsUtil.SetDoubleBuffered(TC_RomFS);
         
         // Add Toggle to Options
-        var themeToggle = new ToolStripMenuItem("Dark mode") { CheckOnClick = true, Checked = WinFormsUtil.IsCyberSlate };
-        themeToggle.Click += Menu_CyberSlate_Click;
+        var themeToggle = new ToolStripMenuItem("Visual Mode");
+        var darkItem = new ToolStripMenuItem("Dark") { CheckOnClick = true, Checked = WinFormsUtil.CurrentTheme == WinFormsUtil.VisualTheme.Dark };
+        var greyItem = new ToolStripMenuItem("Grey") { CheckOnClick = true, Checked = WinFormsUtil.CurrentTheme == WinFormsUtil.VisualTheme.Grey };
+        
+        darkItem.Click += (s, e) => { WinFormsUtil.CurrentTheme = WinFormsUtil.VisualTheme.Dark; greyItem.Checked = false; WinFormsUtil.RefreshAllThemes(); };
+        greyItem.Click += (s, e) => { WinFormsUtil.CurrentTheme = WinFormsUtil.VisualTheme.Grey; darkItem.Checked = false; WinFormsUtil.RefreshAllThemes(); };
+        
+        themeToggle.DropDownItems.Add(darkItem);
+        themeToggle.DropDownItems.Add(greyItem);
         Menu_Options.DropDownItems.Add(themeToggle);
+
+        LoadQuotes();
+        InitializeMascotUI();
+        UpdateMascot();
+        AddThemeMenu();
     }
 
     internal static GameConfig Config;
@@ -149,8 +193,7 @@ public sealed partial class Main : Form
 
     private void Menu_CyberSlate_Click(object sender, EventArgs e)
     {
-        bool enabled = !WinFormsUtil.IsCyberSlate;
-        WinFormsUtil.IsCyberSlate = enabled;
+        WinFormsUtil.CurrentTheme = WinFormsUtil.CurrentTheme == WinFormsUtil.VisualTheme.Dark ? WinFormsUtil.VisualTheme.Grey : WinFormsUtil.VisualTheme.Dark;
         WinFormsUtil.RefreshAllThemes();
     }
 
@@ -772,6 +815,439 @@ public sealed partial class Main : Form
             trdata.Save();
             trpoke.Save();
         }).Start();
+    }
+
+    private void InitializeMascotUI()
+    {
+        // Sidebar Panel - Narrower and Transparent
+        this.PNL_Sidebar.Size = new System.Drawing.Size(180, 420);
+        this.PNL_Sidebar.Dock = System.Windows.Forms.DockStyle.Right;
+        this.PNL_Sidebar.BackColor = System.Drawing.Color.Transparent; this.PNL_Sidebar.Name = "PNL_Sidebar";
+
+        // ----- MASCOT PictureBox — parented to PNL_Sidebar -----
+        this.PB_Sprite.Size = new System.Drawing.Size(160, 160);
+        this.PB_Sprite.Location = new System.Drawing.Point(10, 10);
+        this.PB_Sprite.SizeMode = PictureBoxSizeMode.Zoom;
+        this.PB_Sprite.BackColor = Color.Transparent;
+        this.PB_Sprite.TabIndex = 0;
+        this.PB_Sprite.Visible = true;
+        this.PB_Sprite.Click += new System.EventHandler(this.PB_Sprite_Click);
+        this.PNL_Sidebar.Controls.Add(this.PB_Sprite);
+
+        // Load a default mascot sprite immediately
+        try { 
+            object obj = pk3DS.WinForms.Properties.Resources.ResourceManager.GetObject("_800");
+            if (obj is Bitmap img) 
+            {
+                this.PB_Sprite.Image = WinFormsUtil.ScaleImage(img, 2);
+                this.PB_Sprite.SizeMode = PictureBoxSizeMode.Zoom;
+            }
+        }
+        catch { }
+
+        // Thought bubble (top of sidebar, above mascot) - HIDDEN
+        this.PNL_MascotGlass.Visible = false;
+        this.PNL_MascotGlass.Location = new System.Drawing.Point(5, 5);
+        this.PNL_MascotGlass.Size = new System.Drawing.Size(170, 36);
+        this.PNL_Sidebar.Controls.Add(this.PNL_MascotGlass);
+
+        this.L_MascotThought.Dock = System.Windows.Forms.DockStyle.Fill;
+        this.L_MascotThought.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Italic);
+        this.L_MascotThought.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+        this.L_MascotThought.ForeColor = System.Drawing.Color.White;
+        this.L_MascotThought.BackColor = System.Drawing.Color.Transparent;
+
+        // Path label for the top area
+        var L_PathLabel = new Label { Text = "Path:", Location = new Point(12, 30), AutoSize = true, ForeColor = Color.White, BackColor = Color.Transparent };
+        this.Controls.Add(L_PathLabel);
+        L_PathLabel.BringToFront();
+
+        // Friendship heart - moved to left as requested
+        this.PB_Friendship.Location = new System.Drawing.Point(10, 182);
+        this.PB_Friendship.Size = new System.Drawing.Size(24, 24);
+        this.PB_Friendship.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+        this.PB_Friendship.BackColor = System.Drawing.Color.Transparent;
+        this.PNL_Sidebar.Controls.Add(this.PB_Friendship);
+        this.PB_Friendship.BringToFront();
+        
+        // Quote below the mascot - moved UP
+        this.L_MascotQuote.Location = new System.Drawing.Point(5, 210);
+        this.L_MascotQuote.Size = new System.Drawing.Size(170, 85);
+        this.L_MascotQuote.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Regular);
+        this.L_MascotQuote.TextAlign = System.Drawing.ContentAlignment.TopCenter;
+        this.L_MascotQuote.ForeColor = System.Drawing.Color.White;
+        this.L_MascotQuote.BackColor = System.Drawing.Color.FromArgb(120, 0, 0, 0); // Semi-transparent black rectangle
+        this.L_MascotQuote.Padding = new Padding(5);
+        this.L_MascotQuote.BorderStyle = BorderStyle.FixedSingle;
+        this.PNL_Sidebar.Controls.Add(this.L_MascotQuote);
+
+        // Game icon + version labels (anchored to bottom of sidebar)
+        this.PB_GameIcon.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+        this.PB_GameIcon.Location = new System.Drawing.Point(8, 315);
+        this.PB_GameIcon.Size = new System.Drawing.Size(32, 32);
+        this.PB_GameIcon.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
+        this.PB_GameIcon.BackColor = System.Drawing.Color.Transparent;
+        this.PNL_Sidebar.Controls.Add(this.PB_GameIcon);
+ 
+        this.L_Version.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+        this.L_Version.AutoSize = true;
+        this.L_Version.Font = new System.Drawing.Font("Segoe UI", 8F);
+        this.L_Version.ForeColor = System.Drawing.Color.LightGray;
+        this.L_Version.BackColor = System.Drawing.Color.Transparent;
+        this.L_Version.Location = new System.Drawing.Point(45, 319);
+        this.L_Version.Text = "";
+        this.PNL_Sidebar.Controls.Add(this.L_Version);
+ 
+        this.L_Game.Anchor = System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left;
+        this.L_Game.AutoSize = true;
+        this.L_Game.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+        this.L_Game.Location = new System.Drawing.Point(45, 334);
+        this.L_Game.Size = new System.Drawing.Size(150, 20);
+        this.L_Game.ForeColor = System.Drawing.Color.White;
+        this.L_Game.BackColor = System.Drawing.Color.Transparent;
+        this.PNL_Sidebar.Controls.Add(this.L_Game);
+
+        // Store button - moved UP
+        this.B_Store.AutoSize = false;
+        this.B_Store.Text = "Store";
+        this.B_Store.Location = new System.Drawing.Point(85, 180);
+        this.B_Store.Size = new System.Drawing.Size(80, 26);
+        this.B_Store.FlatStyle = FlatStyle.Flat;
+        this.B_Store.ForeColor = Color.White;
+        this.B_Store.BackColor = Color.FromArgb(80, 0, 0, 0);
+        this.B_Store.FlatAppearance.BorderSize = 1;
+        this.B_Store.Click += new System.EventHandler(this.B_Store_Click);
+        this.PNL_Sidebar.Controls.Add(this.B_Store);
+
+        // Add sidebar to form — must come LAST so Dock=Right is calculated correctly
+        if (!this.Controls.Contains(this.PNL_Sidebar)) this.Controls.Add(this.PNL_Sidebar);
+        this.PNL_Sidebar.Visible = true;
+        this.PNL_Sidebar.BringToFront();
+        this.PB_Sprite.BringToFront();
+        this.PB_Sprite.Click += Mascot_Click;
+        SetMascotQuote();
+
+        // Expand window to fit content + sidebar
+        this.ClientSize = new System.Drawing.Size(800, 450);
+        this.MinimumSize = new System.Drawing.Size(800, 490);
+        this.MinimizeBox = true;
+        this.MaximizeBox = false;
+    }
+
+    private void Main_Paint(object sender, PaintEventArgs e)
+    {
+        using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(this.ClientRectangle, GradientStart, GradientEnd, 90F))
+        {
+            e.Graphics.FillRectangle(brush, this.ClientRectangle);
+        }
+    }
+
+    private void AddThemeMenu()
+    {
+        var themeMenu = new ToolStripMenuItem("Visual Theme");
+        foreach (var theme in new[] { "Xerneas", "Yveltal", "Groudon", "Kyogre", "Solgaleo", "Lunala", "Necrozma", "Ultra Necrozma", "Rayquaza", "Deoxys", "Zygarde" })
+        {
+            var item = new ToolStripMenuItem(theme);
+            item.Click += (s, e) => {
+                Properties.Settings.Default.CustomTheme = theme;
+                Properties.Settings.Default.Save();
+                UpdateMascot(); // This will now update GradientStart and Sprite
+                this.Invalidate();
+            };
+            themeMenu.DropDownItems.Add(item);
+        }
+        Menu_Options.DropDownItems.Add(themeMenu);
+        
+        string savedTheme = Properties.Settings.Default.CustomTheme;
+        if (!string.IsNullOrEmpty(savedTheme))
+            UpdateMascot();
+    }
+
+    private void LoadQuotes()
+    {
+        if (File.Exists("quotes.txt"))
+        {
+            Quotes = File.ReadAllLines("quotes.txt");
+            return;
+        }
+
+        try
+        {
+            var assembly = typeof(Main).Assembly;
+            using var stream = assembly.GetManifestResourceStream("pk3DS.WinForms.Resources.quotes.txt");
+            if (stream != null)
+            {
+                using var reader = new StreamReader(stream);
+                Quotes = reader.ReadToEnd().Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                return;
+            }
+        }
+        catch { }
+
+        Quotes = ["Keep up the good work!", "You're doing great!", "Let's make a great game!"];
+    }
+
+    private int Friendship
+    {
+        get => Properties.Settings.Default.MascotFriendship;
+        set { Properties.Settings.Default.MascotFriendship = value; Properties.Settings.Default.Save(); UpdateFriendshipUI(); }
+    }
+
+    private void Mascot_Click(object sender, EventArgs e)
+    {
+        Friendship += 1;
+        SetMascotQuote();
+    }
+
+    private void SetMascotQuote()
+    {
+        if (Quotes == null || Quotes.Length == 0) LoadQuotes();
+        string quote = Quotes[new Random().Next(Quotes.Length)];
+        string name = GetMascotName();
+        L_MascotQuote.Text = quote.Replace("[PokemonName]", name);
+    }
+
+    private string GetMascotName()
+    {
+        string theme = Properties.Settings.Default.CustomTheme;
+        if (!string.IsNullOrEmpty(theme))
+        {
+            if (theme == "Ultra Necrozma") return "Ultra Necrozma";
+            return theme;
+        }
+
+        if (Config == null) return "Necrozma";
+        if (Config.X) return "Xerneas";
+        if (Config.Y) return "Yveltal";
+        if (Config.AS) return "Kyogre";
+        if (Config.OR) return "Groudon";
+        if (Config.Sun) return "Solgaleo";
+        if (Config.Moon) return "Lunala";
+        if (Config.UltraSun) return "Necrozma";
+        if (Config.UltraMoon) return "Necrozma";
+        return "Mascot";
+    }
+
+    private void UpdateFriendshipUI()
+    {
+        if (Friendship >= 255) PB_Friendship.Image = WinFormsUtil.GetFriendshipIcon(3); // Max
+        else if (Friendship >= 150) PB_Friendship.Image = WinFormsUtil.GetFriendshipIcon(2); // Mid
+        else if (Friendship >= 50) PB_Friendship.Image = WinFormsUtil.GetFriendshipIcon(1); // Low
+        else PB_Friendship.Image = WinFormsUtil.GetFriendshipIcon(0); // None
+    }
+
+    public void HandleFriendship(int points)
+    {
+        int multiplier = 1;
+        var items = Properties.Settings.Default.MascotItems ?? "";
+        if (items.Contains("Big Root") || items.Contains("Leftovers"))
+            multiplier = 2;
+
+        Friendship = Math.Min(255, Friendship + (points * multiplier));
+        UpdateFriendshipUI();
+    }
+
+    private string currentPath;
+    private void OnPathChanged()
+    {
+        if (currentPath == TB_Path.Text) return;
+        currentPath = TB_Path.Text;
+        // Reset session-based perks if game path changes
+        Properties.Settings.Default.MascotItems = ""; 
+        Properties.Settings.Default.Save();
+        UpdateMascot();
+    }
+
+    private void UpdateMascot()
+    {
+        // Default Gradient
+        GradientStart = Color.FromArgb(45, 25, 60);
+        GradientEnd = Color.FromArgb(30, 30, 30);
+        int species = 800;
+        int form = 0;
+
+        // Apply Custom Theme Override if present
+        string customTheme = Properties.Settings.Default.CustomTheme;
+        if (!string.IsNullOrEmpty(customTheme))
+        {
+            switch (customTheme)
+            {
+                case "Xerneas": species = 716; GradientStart = ColorTranslator.FromHtml("#4C69A2"); break;
+                case "Yveltal": species = 717; GradientStart = ColorTranslator.FromHtml("#A4101B"); break;
+                case "Groudon": species = 383; GradientStart = ColorTranslator.FromHtml("#DA1B22"); break;
+                case "Kyogre": species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); break;
+                case "Solgaleo": species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); break;
+                case "Lunala": species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); break;
+                case "Necrozma": species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); break;
+                case "Ultra Necrozma": species = 800; form = 3; GradientStart = ColorTranslator.FromHtml("#FFF79F"); break;
+                case "Rayquaza": species = 384; GradientStart = ColorTranslator.FromHtml("#1F8464"); break;
+                case "Deoxys": species = 386; GradientStart = ColorTranslator.FromHtml("#E7935D"); break;
+                case "Zygarde": species = 718; form = 1; GradientStart = ColorTranslator.FromHtml("#353535"); break;
+            }
+        }
+        else // Fallback to Game-based detection
+        {
+            if (Config == null) { species = 800; }
+            else if (Config.X) { species = 716; GradientStart = ColorTranslator.FromHtml("#4C69A2"); }
+            else if (Config.Y) { species = 717; GradientStart = ColorTranslator.FromHtml("#A4101B"); }
+            else if (Config.AS) { species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); }
+            else if (Config.OR) { species = 383; GradientStart = ColorTranslator.FromHtml("#DA1B22"); }
+            else if (Config.Sun) { species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); }
+            else if (Config.Moon) { species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); }
+            else if (Config.UltraSun) { species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); }
+            else if (Config.UltraMoon) { species = 800; form = 2; GradientStart = ColorTranslator.FromHtml("#B2DAE2"); }
+        }
+
+        // Item-based Form Overrides
+        var ownedItemsList = (Properties.Settings.Default.MascotItems ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (species == 383 && ownedItemsList.Contains("Red Orb")) form = 1; // Primal Groudon
+        if (species == 382 && ownedItemsList.Contains("Blue Orb")) form = 1; // Primal Kyogre
+        if (species == 384 && ownedItemsList.Contains("Meteorite")) form = 1; // Mega Rayquaza
+        if (species == 718 && ownedItemsList.Contains("Leftovers")) form = 4; // Zygarde Complete
+        if (species == 386) form = DeoxysForm % 4; // Use persistent Deoxys form counter
+
+
+        // Special fallback for alternate forms of Necrozma if they don't load from GARC
+        Bitmap sprite = (Bitmap)WinFormsUtil.GetSprite(species, form, 0, 0, Config);
+        if (sprite == null)
+        {
+            string resName = $"_{species}";
+            if (form > 0) resName += $"_{form}";
+            object obj = pk3DS.WinForms.Properties.Resources.ResourceManager.GetObject(resName);
+            if (obj is Bitmap resImg) sprite = resImg;
+            else if (obj == null) { // Definitive fallback
+                obj = pk3DS.WinForms.Properties.Resources.ResourceManager.GetObject("_800");
+                if (obj is Bitmap defImg) sprite = defImg;
+            }
+        }
+
+        if (sprite != null)
+            PB_Sprite.Image = WinFormsUtil.ScaleImage(sprite, 2);
+        
+        this.Invalidate(); // Redraw with new gradient
+        
+        PB_Sprite.Visible = true;
+        PB_Sprite.BringToFront();
+        PNL_Sidebar.Visible = true;
+        PNL_Sidebar.BringToFront();
+        
+        // Add quote text randomly
+        SetMascotQuote();
+        UpdateFriendshipUI();
+        
+        string themeName = GetThemeForGame();
+        if (species == 800 && form == 3) themeName = "Ultra Necrozma";
+        WinFormsUtil.ApplyGradient(this, themeName);
+        
+        // Update Game Info
+        if (Config != null)
+        {
+            L_Game.Text = Config.X ? "Pokémon X" : Config.Y ? "Pokémon Y" : Config.OR ? "Pokémon Omega Ruby" : Config.AS ? "Pokémon Alpha Sapphire" : Config.Sun ? "Pokémon Sun" : Config.Moon ? "Pokémon Moon" : Config.UltraSun ? "Pokémon Ultra Sun" : Config.UltraMoon ? "Pokémon Ultra Moon" : "Pokémon Game";
+            L_Version.Text = $"v{Config.Version}";
+            if (SMDH != null) PB_GameIcon.Image = SMDH.LargeIcon.Icon;
+        }
+        else
+        {
+            L_Game.Text = "No Game Loaded";
+            L_Version.Text = "";
+            PB_GameIcon.Image = null;
+        }
+    }
+
+    private string GetThemeForGame()
+    {
+        if (Config == null) return "Necrozma";
+        if (Config.X) return "Xerneas";
+        if (Config.Y) return "Yveltal";
+        if (Config.AS) return "Kyogre";
+        if (Config.OR) return "Groudon";
+        if (Config.Sun) return "Solgaleo";
+        if (Config.Moon) return "Lunala";
+        if (Config.UltraSun) return "Ultra Necrozma";
+        if (Config.UltraMoon) return "Necrozma";
+        return "Necrozma";
+    }
+
+    private static int DeoxysForm = 0;
+    private void PB_Sprite_Click(object sender, EventArgs e)
+    {
+        var items = Properties.Settings.Default.MascotItems ?? "";
+        if (items.Contains("Meteorite") && PB_Sprite.Image != null)
+        {
+            // Specifically handling Deoxys form loop
+            string customTheme = Properties.Settings.Default.CustomTheme;
+            if (customTheme == "Deoxys")
+            {
+                DeoxysForm++;
+                UpdateMascot();
+            }
+        }
+        HandleFriendship(2);
+        if (Quotes == null || Quotes.Length == 0) return;
+        string quote = Quotes[new Random().Next(Quotes.Length)];
+        
+        // Contextual Thoughts
+        if (TC_RomFS.SelectedTab == Tab_RomFS)
+        {
+            var active = FLP_RomFS.Controls.OfType<Button>().FirstOrDefault(b => b.Focused);
+            if (active == B_Personal) quote = "It dreams about what it would be if it got buffed.";
+            else if (active == B_LevelUp) quote = "Maybe it could use a new move or two!";
+        }
+
+        L_MascotThought.Text = quote;
+        
+        // Visual feedback
+        PNL_MascotGlass.Visible = true;
+        var timer = new System.Windows.Forms.Timer { Interval = 3000 };
+        timer.Tick += (s, ev) => { PNL_MascotGlass.Visible = false; timer.Stop(); };
+        timer.Start();
+    }
+
+    private void B_Store_Click(object sender, EventArgs e)
+    {
+        if (Friendship < 100)
+        {
+            WinFormsUtil.Alert("You need at least 100 Friendship points to open the Store!");
+            return;
+        }
+
+        var storeItems = new (string Name, int ID)[] { 
+            ("Red Orb", 534), ("Blue Orb", 535), ("Meteorite", 729), ("Big Root", 296), 
+            ("Black Glasses", 240), ("Leftovers", 234), ("Solganium Z", 927), 
+            ("Lunalium Z", 928), ("Ultranecrozium Z", 929) 
+        };
+        var ownedItems = (Properties.Settings.Default.MascotItems ?? "").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+
+        using (var f = new Form { Text = "Mascot Store", Size = new Size(400, 500), StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog })
+        {
+            var flp = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(10) };
+            foreach (var item in storeItems)
+            {
+                var pnl = new Panel { Size = new Size(350, 60), BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(0, 0, 0, 5) };
+                var pb = new PictureBox { Size = new Size(48, 48), Location = new Point(5, 5), SizeMode = PictureBoxSizeMode.Zoom };
+                pb.Image = (Bitmap)Properties.Resources.ResourceManager.GetObject($"item_{item.ID}") ?? Properties.Resources.helditem;
+                var lbl = new Label { Text = item.Name, Location = new Point(60, 10), Font = new Font("Segoe UI", 10, FontStyle.Bold), AutoSize = true };
+                var cost = new Label { Text = ownedItems.Contains(item.Name) ? "OWNED" : "50 PTS", Location = new Point(60, 30), AutoSize = true, ForeColor = Color.Gold };
+                
+                var btnBuy = new Button { Text = "BUY", Size = new Size(60, 30), Location = new Point(280, 15), Enabled = !ownedItems.Contains(item.Name) };
+                btnBuy.Click += (s, ev) => {
+                    if (Friendship < 50) { WinFormsUtil.Alert("Not enough points!"); return; }
+                    Friendship -= 50;
+                    ownedItems.Add(item.Name);
+                    Properties.Settings.Default.MascotItems = string.Join(",", ownedItems);
+                    Properties.Settings.Default.Save();
+                    WinFormsUtil.Alert($"Purchased {item.Name}!");
+                    UpdateMascot();
+                    f.Close();
+                };
+
+                pnl.Controls.AddRange(new Control[] { pb, lbl, cost, btnBuy });
+                flp.Controls.Add(pnl);
+            }
+            f.Controls.Add(flp);
+            WinFormsUtil.ApplyTheme(f);
+            f.ShowDialog();
+        }
     }
 
     private void B_Personal_Click(object sender, EventArgs e)
