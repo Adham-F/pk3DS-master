@@ -36,8 +36,10 @@ partial class TMEditor7
         this.B_UpdateDesc = new System.Windows.Forms.Button();
         this.TB_Offset = new System.Windows.Forms.TextBox();
         this.L_Offset = new System.Windows.Forms.Label();
-        this.CHK_Expanded = new System.Windows.Forms.CheckBox();
+        this.NUD_TMCount = new System.Windows.Forms.NumericUpDown();
+        this.L_TMCount = new System.Windows.Forms.Label();
         ((System.ComponentModel.ISupportInitialize)(this.dgvTM)).BeginInit();
+        ((System.ComponentModel.ISupportInitialize)(this.NUD_TMCount)).BeginInit();
         this.SuspendLayout();
         // 
         // dgvTM
@@ -123,17 +125,27 @@ partial class TMEditor7
         this.L_Offset.TabIndex = 10;
         this.L_Offset.Text = "Table Offset:";
         // 
-        // CHK_Expanded
+        // NUD_TMCount
         // 
-        this.CHK_Expanded.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-        this.CHK_Expanded.AutoSize = true;
-        this.CHK_Expanded.Location = new System.Drawing.Point(200, 334);
-        this.CHK_Expanded.Name = "CHK_Expanded";
-        this.CHK_Expanded.Size = new System.Drawing.Size(120, 17);
-        this.CHK_Expanded.TabIndex = 11;
-        this.CHK_Expanded.Text = "Expanded (128 TMs)";
-        this.CHK_Expanded.UseVisualStyleBackColor = true;
-        this.CHK_Expanded.CheckedChanged += new System.EventHandler(this.CHK_Expanded_CheckedChanged);
+        this.NUD_TMCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.NUD_TMCount.Location = new System.Drawing.Point(200, 332);
+        this.NUD_TMCount.Maximum = new decimal(new int[] { 128, 0, 0, 0 });
+        this.NUD_TMCount.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+        this.NUD_TMCount.Name = "NUD_TMCount";
+        this.NUD_TMCount.Size = new System.Drawing.Size(60, 20);
+        this.NUD_TMCount.TabIndex = 11;
+        this.NUD_TMCount.Value = new decimal(new int[] { 100, 0, 0, 0 });
+        this.NUD_TMCount.ValueChanged += new System.EventHandler(this.NUD_TMCount_ValueChanged);
+        //
+        // L_TMCount
+        //
+        this.L_TMCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+        this.L_TMCount.AutoSize = true;
+        this.L_TMCount.Location = new System.Drawing.Point(265, 335);
+        this.L_TMCount.Name = "L_TMCount";
+        this.L_TMCount.Size = new System.Drawing.Size(55, 13);
+        this.L_TMCount.TabIndex = 12;
+        this.L_TMCount.Text = "TM Count";
         // 
         // TMEditor7
         // 
@@ -148,7 +160,8 @@ partial class TMEditor7
         this.Controls.Add(this.B_RTM);
         this.Controls.Add(this.L_TM);
         this.Controls.Add(this.dgvTM);
-        this.Controls.Add(this.CHK_Expanded);
+        this.Controls.Add(this.NUD_TMCount);
+        this.Controls.Add(this.L_TMCount);
         this.MaximizeBox = false;
         this.MaximumSize = new System.Drawing.Size(520, 670);
         this.MinimumSize = new System.Drawing.Size(396, 370);
@@ -157,6 +170,7 @@ partial class TMEditor7
         this.Text = "TM Editor";
         this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.Form_Closing);
         ((System.ComponentModel.ISupportInitialize)(this.dgvTM)).EndInit();
+        ((System.ComponentModel.ISupportInitialize)(this.NUD_TMCount)).EndInit();
         this.ResumeLayout(false);
         this.PerformLayout();
 
@@ -172,5 +186,6 @@ partial class TMEditor7
     private System.Windows.Forms.Button B_UpdateDesc;
     private System.Windows.Forms.TextBox TB_Offset;
     private System.Windows.Forms.Label L_Offset;
-    private System.Windows.Forms.CheckBox CHK_Expanded;
+    private System.Windows.Forms.NumericUpDown NUD_TMCount;
+    private System.Windows.Forms.Label L_TMCount;
 }

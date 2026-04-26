@@ -110,6 +110,7 @@ public sealed class GARCReference
         new(015, "megaevo"),
         new(017, "personal"),
         new(019, "item"),
+        new(020, "move_anim_prop"),
         new(021, "move_anim"),
 
         new(077, "zonedata"),
@@ -142,7 +143,8 @@ public sealed class GARCReference
         new(015, "megaevo"),
         new(017, "personal"),
         new(019, "item"),
-        new(021, "move_anim"),
+        new(080, "move_anim_prop"),
+        new(088, "move_anim"),
 
         new(077, "zonedata"),
         new(091, "worlddata"),

@@ -85,7 +85,7 @@ public partial class MoveEditor7 : Form
             }
         }
 
-        PatchEngineMoveLimits(maxMoveId);
+        EnginePatcher7.SyncEngineLimits(maxMoveId);
 
         // 4. Load Animation Map & Hashes
         LoadAnimationMap();
@@ -293,7 +293,7 @@ public partial class MoveEditor7 : Form
 
     private void TrackComparison(int index)
     {
-        if (index < 1 || index >= files.Length) return;
+        if (index < 1 || index >= files.Length || index >= _originalMoves.Length) return;
         var oldMove = new Move7(_originalMoves[index]);
         var newMove = new Move7(files[index]);
 
@@ -629,47 +629,7 @@ public partial class MoveEditor7 : Form
         }
     }
 
-    private void PatchEngineMoveLimits(int maxMoveId)
-    {
-        string binName = System.IO.File.Exists(System.IO.Path.Combine(Main.ExeFSPath, ".code.bin")) ? ".code.bin" : "code.bin";
-        string codePath = System.IO.Path.Combine(Main.ExeFSPath, binName);
-        string battlePath = System.IO.Path.Combine(Main.RomFSPath, "battle", "battle.cro");
 
-        if (!System.IO.File.Exists(codePath) || !System.IO.File.Exists(battlePath)) return;
-
-        byte[] codePatchR0 = GetCmpInstruction(0, maxMoveId);
-        byte[] codePatchR1 = GetCmpInstruction(1, maxMoveId);
-        byte[] codePatchR5 = GetCmpInstruction(5, maxMoveId);
-        byte[] battlePatchR7 = GetCmpInstruction(7, maxMoveId);
-        byte[] battlePatchR5 = GetCmpInstruction(5, maxMoveId);
-        byte[] battlePatchR2 = GetCmpInstruction(2, maxMoveId);
-
-        if (codePatchR0 == null || codePatchR1 == null || codePatchR5 == null || 
-            battlePatchR7 == null || battlePatchR5 == null || battlePatchR2 == null)
-        {
-            return;
-        }
-
-        byte[] codeBin = System.IO.File.ReadAllBytes(codePath);
-        byte[] battleCro = System.IO.File.ReadAllBytes(battlePath);
-
-        bool needsPatch = false;
-
-        needsPatch |= ApplyARMPatch(codeBin, 0x226680, codePatchR0);
-        needsPatch |= ApplyARMPatch(codeBin, 0x2267D4, codePatchR0);
-        needsPatch |= ApplyARMPatch(codeBin, 0x226B04, codePatchR1);
-        needsPatch |= ApplyARMPatch(codeBin, 0x2D2C28, codePatchR5);
-
-        needsPatch |= ApplyARMPatch(battleCro, 0x092D70, battlePatchR7);
-        needsPatch |= ApplyARMPatch(battleCro, 0x093644, battlePatchR5);
-        needsPatch |= ApplyARMPatch(battleCro, 0x0B0884, battlePatchR2);
-
-        if (needsPatch)
-        {
-            System.IO.File.WriteAllBytes(codePath, codeBin);
-            System.IO.File.WriteAllBytes(battlePath, battleCro);
-        }
-    }
 
     private bool ApplyARMPatch(byte[] fileData, int offset, byte[] patch)
     {

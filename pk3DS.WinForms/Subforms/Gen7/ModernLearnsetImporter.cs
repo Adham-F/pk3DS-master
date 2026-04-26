@@ -171,20 +171,12 @@ namespace pk3DS.WinForms
             if (_cachedContent != null) return _cachedContent;
             try
             {
-                // Prioritize the specific path provided by the user in the repo root
-                string repoPath = Path.GetFullPath(Path.Combine(Application.StartupPath, @"..\..\..\..\learnsets.txt"));
-                if (File.Exists(repoPath)) return _cachedContent = File.ReadAllText(repoPath);
+                string data = WinFormsUtil.GetInternalText("learnsets.txt");
+                if (!string.IsNullOrEmpty(data))
+                    return _cachedContent = data;
 
-                string rootPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "learnsets.txt");
-                if (File.Exists(rootPath)) return _cachedContent = File.ReadAllText(rootPath);
-
-                using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("pk3DS.WinForms.Resources.learnsets.txt");
-                if (stream != null) using (var reader = new StreamReader(stream)) _cachedContent = reader.ReadToEnd();
-                else
-                {
-                    string fallback = Path.Combine(Application.StartupPath, "learnsets.txt");
-                    if (File.Exists(fallback)) _cachedContent = File.ReadAllText(fallback);
-                }
+                string fallback = Path.Combine(Application.StartupPath, "learnsets.txt");
+                if (File.Exists(fallback)) _cachedContent = File.ReadAllText(fallback);
             }
             catch { }
             return _cachedContent ?? "";

@@ -517,26 +517,54 @@ public static class ResearchEngine
         catch { return false; }
     }
 
-    public static bool ExpandGARC(string path, int targetCount, int entrySize)
+    public static bool ExpandGARC(string path, int targetCount, int entrySize, bool isMiniInside = false, byte[] template = null)
     {
         if (!File.Exists(path)) return false;
         try
         {
             byte[] garcData = File.ReadAllBytes(path);
-            var mini = Mini.UnpackMini(garcData, "WD");
-            if (mini == null) return false;
-
-            if (mini.Length >= targetCount) return true;
-
-            var list = mini.ToList();
-            while (list.Count < targetCount)
-            {
-                list.Add(new byte[entrySize]);
+            byte[] MakeEntry() {
+                if (template != null) return (byte[])template.Clone();
+                return new byte[entrySize];
             }
 
-            byte[] newGarc = Mini.PackMini(list.ToArray(), "WD");
-            File.WriteAllBytes(path, newGarc);
-            return true;
+            if (garcData.Length > 4 && garcData[0] == 'G' && garcData[1] == 'A' && garcData[2] == 'R' && garcData[3] == 'C')
+            {
+                var garc = new pk3DS.Core.CTR.GARC.MemGARC(garcData);
+                if (isMiniInside)
+                {
+                    var miniData = garc.GetFile(0);
+                    var mini = Mini.UnpackMini(miniData, "WD");
+                    if (mini == null || mini.Length >= targetCount) return false;
+                    var list = mini.ToList();
+                    while (list.Count < targetCount) list.Add(MakeEntry());
+                    garc.Files = new[] { Mini.PackMini(list.ToArray(), "WD") };
+                    File.WriteAllBytes(path, garc.Data);
+                    return true;
+                }
+                else
+                {
+                    var files = garc.Files;
+                    if (files.Length >= targetCount) return true;
+                    var list = files.ToList();
+                    while (list.Count < targetCount) list.Add(MakeEntry());
+                    garc.Files = list.ToArray();
+                    File.WriteAllBytes(path, garc.Data);
+                    return true;
+                }
+            }
+            else
+            {
+                var mini = Mini.UnpackMini(garcData, "WD");
+                if (mini == null || mini.Length >= targetCount) return false;
+
+                var list = mini.ToList();
+                while (list.Count < targetCount) list.Add(MakeEntry());
+
+                byte[] newGarc = Mini.PackMini(list.ToArray(), "WD");
+                File.WriteAllBytes(path, newGarc);
+                return true;
+            }
         }
         catch { return false; }
     }

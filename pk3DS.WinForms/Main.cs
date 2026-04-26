@@ -95,6 +95,12 @@ namespace pk3DS.WinForms;
         const string randset = RandSettings.FileName;
         if (File.Exists(randset))
             RandSettings.Load(File.ReadAllLines(randset));
+        else
+        {
+            string defaultRand = WinFormsUtil.GetInternalText("randsettings.txt");
+            if (!string.IsNullOrEmpty(defaultRand))
+                RandSettings.Load(defaultRand.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None));
+        }
 
         WinFormsUtil.ApplyTheme(this);
         WinFormsUtil.SetDoubleBuffered(TC_RomFS);
@@ -245,7 +251,7 @@ namespace pk3DS.WinForms;
     private void AddThemeMenu()
     {
         var themeMenu = new ToolStripMenuItem("Visual Theme");
-        foreach (var theme in new[] { "Xerneas", "Yveltal", "Groudon", "Kyogre", "Solgaleo", "Lunala", "Necrozma", "Ultra Necrozma", "Rayquaza", "Deoxys", "Zygarde" })
+        foreach (var theme in new[] { "Xerneas", "Yveltal", "Groudon", "Kyogre", "Solgaleo", "Lunala", "Necrozma", "Dusk Mane Necrozma", "Dawn Wings Necrozma", "Ultra Necrozma", "Rayquaza", "Deoxys", "Zygarde", "Magearna", "Zeraora", "Marshadow", "Incineroar", "Decidueye", "Primarina" })
         {
             var item = new ToolStripMenuItem(theme);
             item.Click += (s, e) => {
@@ -266,10 +272,13 @@ namespace pk3DS.WinForms;
     private string[] Quotes;
     private void LoadQuotes()
     {
-        if (File.Exists("quotes.txt"))
-            Quotes = File.ReadAllLines("quotes.txt");
-        else
+        try {
+            string data = WinFormsUtil.GetInternalText("quotes.txt");
+            if (string.IsNullOrEmpty(data)) throw new Exception();
+            Quotes = data.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+        } catch {
             Quotes = ["Keep up the good work!", "You're doing great!", "Let's make a great game!"];
+        }
     }
 
     private int Friendship
@@ -363,24 +372,45 @@ namespace pk3DS.WinForms;
                 case "Kyogre": species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); break;
                 case "Solgaleo": species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); break;
                 case "Lunala": species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); break;
-                case "Necrozma": species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); break;
+                case "Necrozma": species = 800; form = 0; GradientStart = ColorTranslator.FromHtml("#4A4B56"); break;
+                case "Dusk Mane Necrozma": species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); break;
+                case "Dawn Wings Necrozma": species = 800; form = 2; GradientStart = ColorTranslator.FromHtml("#B2DAE2"); break;
                 case "Ultra Necrozma": species = 800; form = 3; GradientStart = ColorTranslator.FromHtml("#FFF79F"); break;
                 case "Rayquaza": species = 384; GradientStart = ColorTranslator.FromHtml("#1F8464"); break;
                 case "Deoxys": species = 386; GradientStart = ColorTranslator.FromHtml("#E7935D"); break;
                 case "Zygarde": species = 718; form = 1; GradientStart = ColorTranslator.FromHtml("#353535"); break;
+                case "Magearna": species = 801; GradientStart = ColorTranslator.FromHtml("#D3B6B9"); break;
+                case "Zeraora": species = 807; GradientStart = ColorTranslator.FromHtml("#F6D035"); break;
+                case "Marshadow": species = 802; GradientStart = ColorTranslator.FromHtml("#4A4B56"); break;
+                case "Incineroar": species = 727; GradientStart = ColorTranslator.FromHtml("#CC2121"); break;
+                case "Decidueye": species = 724; GradientStart = ColorTranslator.FromHtml("#155C41"); break;
+                case "Primarina": species = 730; GradientStart = ColorTranslator.FromHtml("#54B3D4"); break;
             }
         }
         else // Fallback to Game-based detection
         {
-            if (Config == null) { species = 800; }
-            else if (Config.X) { species = 716; GradientStart = ColorTranslator.FromHtml("#4C69A2"); }
-            else if (Config.Y) { species = 717; GradientStart = ColorTranslator.FromHtml("#A4101B"); }
-            else if (Config.AS) { species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); }
-            else if (Config.OR) { species = 383; GradientStart = ColorTranslator.FromHtml("#DA1B22"); }
-            else if (Config.Sun) { species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); }
-            else if (Config.Moon) { species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); }
-            else if (Config.UltraSun) { species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); }
-            else if (Config.UltraMoon) { species = 800; form = 2; GradientStart = ColorTranslator.FromHtml("#B2DAE2"); }
+            string path = (RomFSPath ?? TB_Path.Text).ToLower();
+            if (path.Contains("ultra sun") || path.Contains("ultrasun") || path.Contains("usum")) { species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); }
+            else if (path.Contains("ultra moon") || path.Contains("ultramoon")) { species = 800; form = 2; GradientStart = ColorTranslator.FromHtml("#B2DAE2"); }
+            else if (path.Contains("omega ruby") || path.Contains("oras")) { species = 383; GradientStart = ColorTranslator.FromHtml("#DA1B22"); }
+            else if (path.Contains("alpha sapphire")) { species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); }
+            else if (path.Contains("sun")) { species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); }
+            else if (path.Contains("moon")) { species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); }
+            else if (path.Contains("pokemon x") || path.EndsWith(" x")) { species = 716; GradientStart = ColorTranslator.FromHtml("#4C69A2"); }
+            else if (path.Contains("pokemon y") || path.EndsWith(" y")) { species = 717; GradientStart = ColorTranslator.FromHtml("#A4101B"); }
+            else if (Config != null)
+            {
+                if (Config.X) { species = 716; GradientStart = ColorTranslator.FromHtml("#4C69A2"); }
+                else if (Config.Y) { species = 717; GradientStart = ColorTranslator.FromHtml("#A4101B"); }
+                else if (Config.AS) { species = 382; GradientStart = ColorTranslator.FromHtml("#3A16A9"); }
+                else if (Config.OR) { species = 383; GradientStart = ColorTranslator.FromHtml("#DA1B22"); }
+                else if (Config.Sun) { species = 791; GradientStart = ColorTranslator.FromHtml("#FF6A01"); }
+                else if (Config.Moon) { species = 792; GradientStart = ColorTranslator.FromHtml("#6B30C9"); }
+                else if (Config.UltraSun) { species = 800; form = 1; GradientStart = ColorTranslator.FromHtml("#F5E9D0"); }
+                else if (Config.UltraMoon) { species = 800; form = 2; GradientStart = ColorTranslator.FromHtml("#B2DAE2"); }
+                else { species = 800; }
+            }
+            else { species = 800; }
         }
 
         // Item-based Form Overrides
@@ -441,15 +471,27 @@ namespace pk3DS.WinForms;
 
     private string GetThemeForGame()
     {
-        if (Config == null) return "Necrozma";
-        if (Config.X) return "Xerneas";
-        if (Config.Y) return "Yveltal";
-        if (Config.AS) return "Kyogre";
-        if (Config.OR) return "Groudon";
-        if (Config.Sun) return "Solgaleo";
-        if (Config.Moon) return "Lunala";
-        if (Config.UltraSun) return "Ultra Necrozma";
-        if (Config.UltraMoon) return "Necrozma";
+        string path = (RomFSPath ?? TB_Path.Text).ToLower();
+        if (path.Contains("ultra sun") || path.Contains("ultrasun") || path.Contains("usum")) return "Dusk Mane Necrozma";
+        if (path.Contains("ultra moon") || path.Contains("ultramoon")) return "Dawn Wings Necrozma";
+        if (path.Contains("sun")) return "Solgaleo";
+        if (path.Contains("moon")) return "Lunala";
+        if (path.Contains("omega ruby") || path.Contains("oras")) return "Groudon";
+        if (path.Contains("alpha sapphire")) return "Kyogre";
+        if (path.Contains("pokemon x") || path.EndsWith(" x")) return "Xerneas";
+        if (path.Contains("pokemon y") || path.EndsWith(" y")) return "Yveltal";
+
+        if (Config != null)
+        {
+            if (Config.X) return "Xerneas";
+            if (Config.Y) return "Yveltal";
+            if (Config.AS) return "Kyogre";
+            if (Config.OR) return "Groudon";
+            if (Config.Sun) return "Solgaleo";
+            if (Config.Moon) return "Lunala";
+            if (Config.UltraSun) return "Dusk Mane Necrozma";
+            if (Config.UltraMoon) return "Dawn Wings Necrozma";
+        }
         return "Necrozma";
     }
 
@@ -1527,11 +1569,19 @@ namespace pk3DS.WinForms;
                     Invoke(() => { var ed = new ItemEditor6(d); WinFormsUtil.ApplyTheme(ed); HandleFriendship(1); ed.ShowDialog(); });
                     break;
                 case 7:
-                    Invoke(() => { var ed = new ItemEditor7(d); WinFormsUtil.ApplyTheme(ed); HandleFriendship(1); ed.ShowDialog(); });
+                    ItemEditor7 editor7 = null;
+                    Invoke(() => { editor7 = new ItemEditor7(d); WinFormsUtil.ApplyTheme(editor7); HandleFriendship(1); editor7.ShowDialog(); });
+                    if (editor7 != null) d = editor7.Files; // Array.Resize in ChangeEntry may create a new array; recapture it
                     break;
             }
             g.Files = d;
             g.Save();
+
+            // Persist any game text changes made by the item editor (item names/flavor)
+            var gt = Config.GARCGameText;
+            gt.Files = TryWriteText(Config.GameTextStrings, gt);
+            gt.Save();
+            Config.InitializeGameText();
         }).Start();
     }
 

@@ -618,7 +618,36 @@ public partial class PersonalEditor7 : Form
         GenerateFullChangelog();
     }
 
-    private void B_Randomize_Click(object sender, EventArgs e)
+    private void B_RandomizeCurrent_Click(object sender, EventArgs e)
+    {
+        if (entry < 0) return;
+        var rnd = new PersonalRandomizer(Main.SpeciesStat, Main.Config)
+        {
+            TypeCount = CB_Type1.Items.Count,
+            ModifyCatchRate = CHK_CatchRate.Checked,
+            ModifyEggGroup = CHK_EggGroup.Checked,
+            ModifyStats = CHK_Stats.Checked,
+            ShuffleStats = CHK_Shuffle.Checked,
+            StatsToRandomize = rstat_boxes.Select(g => g.Checked).ToArray(),
+            ModifyAbilities = CHK_Ability.Checked,
+            ModifyLearnsetTM = CHK_TM.Checked,
+            ModifyLearnsetHM = false,
+            ModifyLearnsetTypeTutors = CHK_Tutors.Checked,
+            ModifyLearnsetMoveTutors = Main.Config.USUM && CHK_BeachTutors.Checked,
+            ModifyTypes = CHK_Type.Checked,
+            ModifyHeldItems = CHK_Item.Checked,
+            SameTypeChance = NUD_TypePercent.Value,
+            SameEggGroupChance = NUD_Egg.Value,
+            StatDeviation = NUD_StatDev.Value,
+            AllowWonderGuard = CHK_WGuard.Checked,
+        };
+
+        rnd.Randomize(Main.SpeciesStat[entry], entry);
+        files[entry] = Main.SpeciesStat[entry].Write();
+        ReadEntry();
+    }
+
+    private void B_RandomizeAll_Click(object sender, EventArgs e)
     {
         if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Randomize all? Cannot undo.", "Double check Randomization settings in the Enhancements tab.") != DialogResult.Yes)
             return;
@@ -649,7 +678,7 @@ public partial class PersonalEditor7 : Form
         Main.SpeciesStat.Select(z => z.Write()).ToArray().CopyTo(files, 0);
 
         ReadEntry();
-        WinFormsUtil.Alert("Randomized all Pokémon Personal data entries according to specification!", "Press the Dump All button to view the new Personal data!");
+        WinFormsUtil.Alert("Randomized all Pokémon Personal data entries according to specification!", "Press the Export All button to view the new Personal data!");
     }
 
     private void B_ModifyAll(object sender, EventArgs e)
@@ -977,6 +1006,20 @@ public partial class PersonalEditor7 : Form
                 CLB_BeachTutors.SetItemChecked(i, ClipboardBeachTutors[i]);
 
         SaveEntry();
+        System.Media.SystemSounds.Asterisk.Play();
+    }
+    private void B_CopyTMs_Click(object sender, EventArgs e)
+    {
+        ClipboardTMs = new bool[CLB_TM.Items.Count];
+        for (int i = 0; i < CLB_TM.Items.Count; i++)
+            ClipboardTMs[i] = CLB_TM.GetItemChecked(i);
+        System.Media.SystemSounds.Asterisk.Play();
+    }
+    private void B_PasteTMs_Click(object sender, EventArgs e)
+    {
+        if (ClipboardTMs == null) return;
+        for (int i = 0; i < Math.Min(CLB_TM.Items.Count, ClipboardTMs.Length); i++)
+            CLB_TM.SetItemChecked(i, ClipboardTMs[i]);
         System.Media.SystemSounds.Asterisk.Play();
     }
 

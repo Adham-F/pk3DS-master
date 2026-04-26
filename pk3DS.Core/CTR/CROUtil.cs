@@ -173,27 +173,46 @@ namespace pk3DS.Core.CTR
 
             // 5. SHA-256 Integrity
             byte[] hashes = RecalculateSegmentHashes(newData);
-            Array.Copy(hashes, 0, newData, 0x84, hashes.Length);
+            Array.Copy(hashes, 0, newData, 0x00, hashes.Length);
 
             return newData;
+        }
+
+        public static void UpdateHashes(byte[] data)
+        {
+            // CRO format: 4×SHA-256 hashes occupy 0x00–0x7F, CRO0 magic starts at 0x80.
+            // Slot 0 = CRO0 header (0x80–0x17F)
+            // Slot 1 = .code segment
+            // Slot 2 = .rodata segment
+            // Slot 3 = .data segment
+            byte[] hashes = RecalculateSegmentHashes(data);
+            Array.Copy(hashes, 0, data, 0x00, hashes.Length); // hashes start at file offset 0x00
         }
 
         private static byte[] RecalculateSegmentHashes(byte[] data)
         {
             uint segmentTableOffset = ReadU32(data, 0xC8);
             byte[] hashes = new byte[0x20 * 4];
-            uint[] starts = GetSegmentStartIndices(data);
             using (var sha = SHA256.Create())
             {
-                for (int i = 0; i < 3; i++) // Only hash physical segments (Code, Rodata, Data)
+                // Slot 0: CRO0 header block (0x80 to start of .code, typically 0x180)
+                uint codeStart = ReadU32(data, (int)segmentTableOffset);
+                uint headerEnd = codeStart > 0x80 ? codeStart : 0x180;
+                if (headerEnd <= data.Length)
                 {
-                    uint off = starts[i];
-                    uint size = ReadU32(data, (int)segmentTableOffset + i * 0x0C + 4);
+                    byte[] h = sha.ComputeHash(data, 0x80, (int)(headerEnd - 0x80));
+                    Array.Copy(h, 0, hashes, 0 * 0x20, 0x20);
+                }
+
+                // Slots 1-3: .code, .rodata, .data segments
+                for (int i = 0; i < 3; i++)
+                {
+                    uint off  = ReadU32(data, (int)(segmentTableOffset + i * 0x0C));
+                    uint size = ReadU32(data, (int)(segmentTableOffset + i * 0x0C + 4));
                     if (size == 0) continue;
-                    if (off + size > data.Length) continue; // Safety check
-                    
+                    if (off + size > (uint)data.Length) continue;
                     byte[] h = sha.ComputeHash(data, (int)off, (int)size);
-                    Array.Copy(h, 0, hashes, i * 0x20, 0x20);
+                    Array.Copy(h, 0, hashes, (i + 1) * 0x20, 0x20);
                 }
             }
             return hashes;
@@ -346,7 +365,7 @@ namespace pk3DS.Core.CTR
                 
                 // 2. Verify Hashes
                 byte[] currentHashes = new byte[0x80];
-                Array.Copy(data, 0x84, currentHashes, 0, 0x80);
+                Array.Copy(data, 0x00, currentHashes, 0, 0x80);
                 byte[] freshHashes = RecalculateSegmentHashes(data);
                 report.HashValid = currentHashes.SequenceEqual(freshHashes);
                 

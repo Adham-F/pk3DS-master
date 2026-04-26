@@ -11,4 +11,10 @@ background: linear-gradient(to right,
   #3A16A9, /* Primal Kyogre */
   #1F8464, /* Mega Rayquaza */
   #E7935D  /* Deoxys */
+  #D3B6B9, /* Magearna */
+  #F6D035, /* Zeraora */
+  #4A4B56, /* Marshadow */
+  #CC2121, /* Incineroar */
+  #155C41, /* Decidueye */
+  #54B3D4  /* Primarina */
 );

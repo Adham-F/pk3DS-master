@@ -24,9 +24,41 @@ public partial class TMEditor7 : Form
             offset += 0x22;
         codebin = files[0];
         movelist[0] = "";
+
+        // Auto-detect expansion start ID
+        DetectExpansionStartID();
+
         SetupDGV();
         GetList();
         TB_Offset.Text = offset.ToString("X");
+
+        // Show TM expansion info when patch is detected
+        int tmCount = (int)NUD_TMCount.Value;
+        if (tmCount > 100)
+        {
+            string msg = $"TM/HM Expansion Patch Detected — {tmCount} TMs\n\n"
+                + "Slot Configuration:\n"
+                + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                + "• TM01–TM107: Uses standard/HM slots.\n"
+                + "• TM108+: Automatically mapped to Item ID " + expandedTMStartID + ".\n\n"
+                + "The editor has automatically detected your custom Item ID range from code.bin.";
+            WinFormsUtil.Alert(msg);
+        }
+    }
+
+    private int expandedTMStartID = 960;
+    private void DetectExpansionStartID()
+    {
+        try {
+            if (File.Exists(codebin)) {
+                byte[] d = File.ReadAllBytes(codebin);
+                // TM Item Table for 108+ is usually at 0x4BB794 in patched USUM
+                if (d.Length > 0x4BB794 + 2) {
+                    int id = BitConverter.ToUInt16(d, 0x4BB794);
+                    if (id >= 100 && id < 2000) expandedTMStartID = id;
+                }
+            }
+        } catch { expandedTMStartID = 960; }
     }
 
     private static readonly byte[] Signature = [0x03, 0x40, 0x03, 0x41, 0x03, 0x42, 0x03, 0x43, 0x03]; // tail end of item::ITEM_CheckBeads
@@ -72,22 +104,17 @@ public partial class TMEditor7 : Form
 
     private void GetList()
     {
-        // Auto-detect expansion from binary
-        string codePath = UniversalPatcher.GetFilePath("code.bin", Main.RomFSPath, Main.ExeFSPath);
+        // Auto-detect expansion from binary by scanning for CMP instructions
+        string codePath = codebin;
         if (File.Exists(codePath))
         {
             byte[] codeData = File.ReadAllBytes(codePath);
-            // CMP R0, #100 (0x64) vs #128 (0x80)
-            int patchIdxExpanded = Util.IndexOfBytes(codeData, new byte[] { 0x80, 0x00, 0x50, 0xE3 }, 0, codeData.Length);
-            
-            CHK_Expanded.Checked = false; // Never auto-check
-            if (patchIdxExpanded >= 0) 
+            int detectedCount = DetectTMCount(codeData);
+            if (detectedCount > 0 && detectedCount != (int)NUD_TMCount.Value)
             {
-                CHK_Expanded.Enabled = true; // Allow user to check it manually
-            }
-            else 
-            {
-                CHK_Expanded.Enabled = false; // Lock if patch is missing
+                skipUpdate = true;
+                NUD_TMCount.Value = Math.Min(detectedCount, NUD_TMCount.Maximum);
+                skipUpdate = false;
             }
         }
 
@@ -98,7 +125,7 @@ public partial class TMEditor7 : Form
         if (!int.TryParse(TB_Offset.Text, System.Globalization.NumberStyles.HexNumber, null, out int currentOffset))
             currentOffset = offset;
 
-        int count = CHK_Expanded.Checked ? 128 : 100;
+        int count = (int)NUD_TMCount.Value;
         if (currentOffset + (count * 2) > data.Length)
         {
              WinFormsUtil.Alert("Offset is out of bounds for the current code.bin.");
@@ -121,6 +148,43 @@ public partial class TMEditor7 : Form
         }
     }
 
+    /// <summary>
+    /// Scans code.bin for the CMP instruction that originally checked #100 (0x64) for TM count.
+    /// Decodes ARM rotated immediates to return the actual patched value.
+    /// </summary>
+    private static int DetectTMCount(byte[] codeData)
+    {
+        // The original instruction is CMP R0, #0x64 (100) => E3 50 00 64
+        // After patching, the immediate changes. We look for CMP R0, #imm near the TM check region.
+        // CMP Rn, #imm has opcode mask 0x0FF00000 == 0x03500000 (for R0) 
+        // We scan for any CMP that's > 100 and <= 128, which would indicate a TM expansion.
+        
+        int bestCount = 0;
+        
+        for (int i = 0; i < codeData.Length - 4; i += 4)
+        {
+            uint word = BitConverter.ToUInt32(codeData, i);
+            // Match CMP R0, #imm (E3 50 0r ii) - condition AL, opcode CMP, Rn=R0
+            if ((word & 0xFFF00000) != 0xE3500000) continue;
+            
+            // Decode ARM rotated immediate
+            uint imm8 = word & 0xFF;
+            uint rot = (word >> 8) & 0xF;
+            uint value = (imm8 >> (int)(rot * 2)) | (imm8 << (int)(32 - rot * 2));
+            if (rot == 0) value = imm8;
+            
+            // We're looking for a value that replaced the original 100 (0x64)
+            // Valid TM counts: anything from 101 to 128
+            if (value > 100 && value <= 128)
+            {
+                if ((int)value > bestCount)
+                    bestCount = (int)value;
+            }
+        }
+        
+        return bestCount > 0 ? bestCount : 100; // default to 100 if no expansion detected
+    }
+
     private void SetList()
     {
         tms = [];
@@ -136,7 +200,7 @@ public partial class TMEditor7 : Form
         if (!int.TryParse(TB_Offset.Text, System.Globalization.NumberStyles.HexNumber, null, out int currentOffset))
             currentOffset = offset;
 
-        int count = Math.Min(tmlist.Length, CHK_Expanded.Checked ? 128 : 100);
+        int count = Math.Min(tmlist.Length, (int)NUD_TMCount.Value);
         for (int i = 0; i < count; i++) 
             Array.Copy(BitConverter.GetBytes(tmlist[i]), 0, data, currentOffset + (2 * i), 2);
 
@@ -154,12 +218,12 @@ public partial class TMEditor7 : Form
         for (int i = 95; i < 100 && i < tmlist.Length; i++) 
             itemDescriptions[690 + i - 95] = moveDescriptions[tmlist[i]];
             
-        // Extra TMs (101-128)
-        if (itemDescriptions.Length > 960)
+        // Extra TMs (108+)
+        if (itemDescriptions.Length > expandedTMStartID)
         {
-            for (int i = 100; i < 128 && i < tmlist.Length; i++)
+            for (int i = 107; i < tmlist.Length; i++)
             {
-                int target = 960 + (i - 100);
+                int target = expandedTMStartID + (i - 107);
                 if (target < itemDescriptions.Length) 
                     itemDescriptions[target] = moveDescriptions[tmlist[i]];
             }
@@ -206,17 +270,15 @@ public partial class TMEditor7 : Form
         if (data.Length % 0x200 != 0) return [];
         if (Main.Config.USUM) dataoffset += 0x22;
 
+        int count = DetectTMCount(data);
+
         List<ushort> tms = [];
-        // Heuristic: If we are in USUM and reading from the default offset, check if data might be expanded
-        // But for safety in other tools, we default to 100 unless we have a reason to expect 128.
-        // Actually, let's look for a tell-tale sign or just use 128 if USUM (since that's what researcher wants).
-        int count = Main.Config.USUM ? 128 : 100; 
         for (int i = 0; i < count; i++) 
             tms.Add(BitConverter.ToUInt16(data, dataoffset + (2 * i)));
         return [.. tms];
     }
 
-    private void CHK_Expanded_CheckedChanged(object sender, EventArgs e)
+    private void NUD_TMCount_ValueChanged(object sender, EventArgs e)
     {
         if (skipUpdate) return;
         GetList();

@@ -31,6 +31,7 @@ namespace pk3DS.WinForms
             locationList = SMWE.GetGoodLocationList(locationList);
 
             InitializeComponent();
+            WinFormsUtil.ApplyTheme(this);
 
             byteViewer = new ByteViewer();
             byteViewer.Location = new System.Drawing.Point(226, 6);
@@ -38,6 +39,10 @@ namespace pk3DS.WinForms
             byteViewer.Dock = DockStyle.Fill;
             byteViewer.SetDisplayMode(DisplayMode.Hexdump);
             hexPanel.Controls.Add(byteViewer);
+            
+            // Apply theme to ByteViewer specifically
+            byteViewer.BackColor = System.Drawing.Color.FromArgb(30, 30, 35);
+            byteViewer.ForeColor = System.Drawing.Color.WhiteSmoke;
 
             SetupDGV();
             LoadData();

@@ -132,6 +132,8 @@ partial class PersonalEditor7
         this.L_TM = new System.Windows.Forms.Label();
         this.CLB_MoveTutors = new System.Windows.Forms.CheckedListBox();
         this.CLB_TM = new System.Windows.Forms.CheckedListBox();
+        this.B_CopyTMs = new System.Windows.Forms.Button();
+        this.B_PasteTMs = new System.Windows.Forms.Button();
         this.TP_Randomizer = new System.Windows.Forms.TabPage();
         this.GB_Modifier = new System.Windows.Forms.GroupBox();
         this.CHK_FullBeachTutorCompatibility = new System.Windows.Forms.CheckBox();
@@ -184,6 +186,7 @@ partial class PersonalEditor7
         this.B_InsertForm = new System.Windows.Forms.Button();
         this.B_Import = new System.Windows.Forms.Button();
         this.B_Export = new System.Windows.Forms.Button();
+        this.B_RandomizeAll = new System.Windows.Forms.Button();
 
         this.TC_Pokemon.SuspendLayout();
         this.TP_General.SuspendLayout();
@@ -733,6 +736,8 @@ partial class PersonalEditor7
         this.B_JumpEggMoves.Click += new System.EventHandler(this.B_JumpEggMoves_Click);
 
         // TP_MoveTutors
+        this.TP_MoveTutors.Controls.Add(this.B_PasteTMs);
+        this.TP_MoveTutors.Controls.Add(this.B_CopyTMs);
         this.TP_MoveTutors.Controls.Add(this.L_BeachTutors);
         this.TP_MoveTutors.Controls.Add(this.CLB_BeachTutors);
         this.TP_MoveTutors.Controls.Add(this.L_Special);
@@ -751,8 +756,8 @@ partial class PersonalEditor7
         this.L_BeachTutors.Text = "Beach Tutors:";
 
         this.CLB_BeachTutors.FormattingEnabled = true;
-        this.CLB_BeachTutors.Location = new System.Drawing.Point(483, 21);
-        this.CLB_BeachTutors.Size = new System.Drawing.Size(180, 360);
+        this.CLB_BeachTutors.Location = new System.Drawing.Point(483, 30);
+        this.CLB_BeachTutors.Size = new System.Drawing.Size(180, 335);
 
         this.L_Special.AutoSize = true;
         this.L_Special.Location = new System.Drawing.Point(240, 5);
@@ -763,17 +768,32 @@ partial class PersonalEditor7
         this.L_TM.Text = "TMs:";
 
         this.CLB_MoveTutors.FormattingEnabled = true;
-        this.CLB_MoveTutors.Location = new System.Drawing.Point(243, 21);
-        this.CLB_MoveTutors.Size = new System.Drawing.Size(200, 360);
+        this.CLB_MoveTutors.Location = new System.Drawing.Point(243, 30);
+        this.CLB_MoveTutors.Size = new System.Drawing.Size(200, 335);
 
         this.CLB_TM.FormattingEnabled = true;
-        this.CLB_TM.Location = new System.Drawing.Point(9, 21);
-        this.CLB_TM.Size = new System.Drawing.Size(210, 360);
+        this.CLB_TM.Location = new System.Drawing.Point(9, 30);
+        this.CLB_TM.Size = new System.Drawing.Size(210, 335);
+
+        // B_CopyTMs
+        this.B_CopyTMs.Location = new System.Drawing.Point(9, 370);
+        this.B_CopyTMs.Name = "B_CopyTMs";
+        this.B_CopyTMs.Size = new System.Drawing.Size(100, 23);
+        this.B_CopyTMs.Text = "Copy TMs";
+        this.B_CopyTMs.UseVisualStyleBackColor = true;
+        this.B_CopyTMs.Click += new System.EventHandler(this.B_CopyTMs_Click);
+
+        // B_PasteTMs
+        this.B_PasteTMs.Location = new System.Drawing.Point(119, 370);
+        this.B_PasteTMs.Name = "B_PasteTMs";
+        this.B_PasteTMs.Size = new System.Drawing.Size(100, 23);
+        this.B_PasteTMs.Text = "Paste TMs";
+        this.B_PasteTMs.UseVisualStyleBackColor = true;
+        this.B_PasteTMs.Click += new System.EventHandler(this.B_PasteTMs_Click);
 
         // TP_Randomizer
         this.TP_Randomizer.Controls.Add(this.GB_Modifier);
         this.TP_Randomizer.Controls.Add(this.GB_Randomizer);
-        this.TP_Randomizer.Controls.Add(this.B_Randomize);
         this.TP_Randomizer.Location = new System.Drawing.Point(4, 22);
         this.TP_Randomizer.Name = "TP_Randomizer";
         this.TP_Randomizer.Size = new System.Drawing.Size(772, 394);
@@ -826,18 +846,18 @@ partial class PersonalEditor7
         this.CHK_CatchRateMod.Size = new System.Drawing.Size(150, 17);
         this.NUD_CatchRateMod.Location = new System.Drawing.Point(510, 66);
         this.NUD_CatchRateMod.Size = new System.Drawing.Size(45, 20);
-        this.L_CatchRateMod.Location = new System.Drawing.Point(450, 68);
-        this.L_CatchRateMod.Text = "Value";
-        this.L_CatchRateMod.Size = new System.Drawing.Size(40, 13);
+        this.L_CatchRateMod.Location = new System.Drawing.Point(440, 68);
+        this.L_CatchRateMod.Text = "Value:";
+        this.L_CatchRateMod.Size = new System.Drawing.Size(65, 13);
 
         this.CHK_CallRate.Location = new System.Drawing.Point(430, 100);
         this.CHK_CallRate.Text = "Modify SOS Call Rate";
         this.CHK_CallRate.Size = new System.Drawing.Size(150, 17);
         this.NUD_CallRate.Location = new System.Drawing.Point(510, 122);
         this.NUD_CallRate.Size = new System.Drawing.Size(45, 20);
-        this.L_CallRateVal.Location = new System.Drawing.Point(450, 124);
-        this.L_CallRateVal.Text = "Value";
-        this.L_CallRateVal.Size = new System.Drawing.Size(40, 13);
+        this.L_CallRateVal.Location = new System.Drawing.Point(440, 124);
+        this.L_CallRateVal.Text = "Value:";
+        this.L_CallRateVal.Size = new System.Drawing.Size(65, 13);
 
         this.CHK_NoTutor.Location = new System.Drawing.Point(13, 125);
         this.CHK_NoTutor.Text = "Remove All TM/Move Tutor Compatibility (Metronome Mode)";
@@ -876,6 +896,8 @@ partial class PersonalEditor7
         this.GB_Randomizer.Controls.Add(this.CHK_BeachTutors);
         this.GB_Randomizer.Controls.Add(this.L_StatDev);
         this.GB_Randomizer.Controls.Add(this.NUD_StatDev);
+        this.GB_Randomizer.Controls.Add(this.B_RandomizeAll);
+        this.GB_Randomizer.Controls.Add(this.B_Randomize);
         this.GB_Randomizer.Location = new System.Drawing.Point(6, 6);
         this.GB_Randomizer.Size = new System.Drawing.Size(720, 200);
         this.GB_Randomizer.Text = "Randomizer Options";
@@ -885,7 +907,7 @@ partial class PersonalEditor7
         this.CHK_Stats.Size = new System.Drawing.Size(120, 17);
 
         this.CHK_rHP.Location = new System.Drawing.Point(15, 50);
-        this.CHK_rHP.Text = "H";
+        this.CHK_rHP.Text = "HP";
         this.CHK_rHP.Size = new System.Drawing.Size(40, 17);
         this.CHK_rATK.Location = new System.Drawing.Point(70, 50);
         this.CHK_rATK.Text = "Atk";
@@ -915,30 +937,30 @@ partial class PersonalEditor7
         this.CHK_Ability.Location = new System.Drawing.Point(15, 100);
         this.CHK_Ability.Text = "Ability";
         this.CHK_Ability.Size = new System.Drawing.Size(100, 17);
-        this.CHK_WGuard.Location = new System.Drawing.Point(140, 100);
+        this.CHK_WGuard.Location = new System.Drawing.Point(185, 100);
         this.CHK_WGuard.Text = "Wonder Guard";
         this.CHK_WGuard.Size = new System.Drawing.Size(120, 17);
 
         this.CHK_Item.Location = new System.Drawing.Point(15, 125);
         this.CHK_Item.Text = "Item";
         this.CHK_Item.Size = new System.Drawing.Size(100, 17);
-        this.CHK_EggGroup.Location = new System.Drawing.Point(140, 125);
+        this.CHK_EggGroup.Location = new System.Drawing.Point(185, 125);
         this.CHK_EggGroup.Text = "Egg Group";
         this.CHK_EggGroup.Size = new System.Drawing.Size(100, 17);
-        this.CHK_CatchRate.Location = new System.Drawing.Point(270, 125);
+        this.CHK_CatchRate.Location = new System.Drawing.Point(355, 125);
         this.CHK_CatchRate.Text = "Catch Rate";
         this.CHK_CatchRate.Size = new System.Drawing.Size(100, 17);
 
         this.CHK_Shuffle.Location = new System.Drawing.Point(15, 150);
         this.CHK_Shuffle.Text = "Shuffle Stats";
         this.CHK_Shuffle.Size = new System.Drawing.Size(100, 17);
-        this.CHK_TM.Location = new System.Drawing.Point(140, 150);
+        this.CHK_TM.Location = new System.Drawing.Point(185, 150);
         this.CHK_TM.Text = "TM/HM";
         this.CHK_TM.Size = new System.Drawing.Size(100, 17);
-        this.CHK_Tutors.Location = new System.Drawing.Point(270, 150);
+        this.CHK_Tutors.Location = new System.Drawing.Point(355, 150);
         this.CHK_Tutors.Text = "Tutors";
         this.CHK_Tutors.Size = new System.Drawing.Size(100, 17);
-        this.CHK_BeachTutors.Location = new System.Drawing.Point(400, 150);
+        this.CHK_BeachTutors.Location = new System.Drawing.Point(525, 150);
         this.CHK_BeachTutors.Text = "Beach Tutors";
         this.CHK_BeachTutors.Size = new System.Drawing.Size(110, 17);
 
@@ -950,7 +972,15 @@ partial class PersonalEditor7
 
         this.B_Randomize.Location = new System.Drawing.Point(580, 25);
         this.B_Randomize.Size = new System.Drawing.Size(120, 30);
-        this.B_Randomize.Text = "Randomize All";
+        this.B_Randomize.Text = "Randomize";
+        this.B_Randomize.UseVisualStyleBackColor = true;
+        this.B_Randomize.Click += new System.EventHandler(this.B_RandomizeCurrent_Click);
+
+        this.B_RandomizeAll.Location = new System.Drawing.Point(580, 60);
+        this.B_RandomizeAll.Size = new System.Drawing.Size(120, 30);
+        this.B_RandomizeAll.Text = "Randomize All";
+        this.B_RandomizeAll.UseVisualStyleBackColor = true;
+        this.B_RandomizeAll.Click += new System.EventHandler(this.B_RandomizeAll_Click);
 
         this.B_ModAll.Location = new System.Drawing.Point(580, 25);
         this.B_ModAll.Size = new System.Drawing.Size(120, 30);
@@ -1155,10 +1185,13 @@ partial class PersonalEditor7
     private System.Windows.Forms.Label L_BST;
     private System.Windows.Forms.TextBox TB_BST;
     private System.Windows.Forms.CheckedListBox CLB_TM;
+    private System.Windows.Forms.Button B_CopyTMs;
+    private System.Windows.Forms.Button B_PasteTMs;
     private System.Windows.Forms.CheckedListBox CLB_MoveTutors;
     private System.Windows.Forms.Label L_Special;
     private System.Windows.Forms.Label L_TM;
     private System.Windows.Forms.PictureBox PB_MonSprite;
+    private System.Windows.Forms.Button B_RandomizeAll;
     private System.Windows.Forms.Button B_Randomize;
     private System.Windows.Forms.CheckBox CHK_TM;
     private System.Windows.Forms.CheckBox CHK_Ability;

@@ -945,7 +945,7 @@ partial class MoveEditor7
         this.B_SaveExport.Name = "B_SaveExport";
         this.B_SaveExport.Size = new System.Drawing.Size(145, 48);
         this.B_SaveExport.TabIndex = 108;
-        this.B_SaveExport.Text = "SAVE ANIMATIONS TO ROM";
+        this.B_SaveExport.Text = "Save / Export to ROM";
         this.B_SaveExport.UseVisualStyleBackColor = false;
         this.B_SaveExport.Click += new System.EventHandler(this.B_SaveExport_Click);
         // 

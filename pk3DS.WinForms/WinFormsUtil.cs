@@ -194,16 +194,25 @@ public static class WinFormsUtil
             ["Kyogre"] = (Color.FromArgb(20, 60, 120), Color.FromArgb(10, 30, 60)),
             ["Solgaleo"] = (Color.FromArgb(140, 100, 40), Color.FromArgb(60, 40, 10)),
             ["Lunala"] = (Color.FromArgb(60, 40, 100), Color.FromArgb(20, 10, 40)),
-            ["Necrozma"] = (Color.FromArgb(40, 40, 40), Color.FromArgb(10, 10, 10)),
+            ["Dusk Mane Necrozma"] = (ColorTranslator.FromHtml("#F5E9D0"), ColorTranslator.FromHtml("#625D53")),
+            ["Dawn Wings Necrozma"] = (ColorTranslator.FromHtml("#B2DAE2"), ColorTranslator.FromHtml("#47575A")),
+            ["Necrozma"] = (ColorTranslator.FromHtml("#4A4B56"), ColorTranslator.FromHtml("#1D1E22")),
             ["Ultra Necrozma"] = (Color.FromArgb(160, 140, 60), Color.FromArgb(80, 70, 20)),
             ["Rayquaza"] = (Color.FromArgb(40, 100, 60), Color.FromArgb(10, 40, 20)),
             ["Deoxys"] = (Color.FromArgb(100, 40, 100), Color.FromArgb(40, 10, 40)),
             ["Zygarde"] = (Color.FromArgb(60, 100, 40), Color.FromArgb(20, 40, 10)),
+            ["Magearna"] = (ColorTranslator.FromHtml("#D3B6B9"), ColorTranslator.FromHtml("#54484A")),
+            ["Zeraora"] = (ColorTranslator.FromHtml("#F6D035"), ColorTranslator.FromHtml("#625315")),
+            ["Marshadow"] = (ColorTranslator.FromHtml("#4A4B56"), ColorTranslator.FromHtml("#1D1E22")),
+            ["Incineroar"] = (ColorTranslator.FromHtml("#CC2121"), ColorTranslator.FromHtml("#510D0D")),
+            ["Decidueye"] = (ColorTranslator.FromHtml("#155C41"), ColorTranslator.FromHtml("#08241A")),
+            ["Primarina"] = (ColorTranslator.FromHtml("#54B3D4"), ColorTranslator.FromHtml("#214754")),
         };
 
-        if (File.Exists("gradients.txt"))
+        string data = GetInternalText("graidents.txt");
+        if (!string.IsNullOrEmpty(data))
         {
-            foreach (var line in File.ReadAllLines("gradients.txt"))
+            foreach (var line in data.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries))
             {
                 var parts = line.Split(':');
                 if (parts.Length < 2) continue;
@@ -289,6 +298,22 @@ public static class WinFormsUtil
             data[i + 1] = greyS;
             data[i + 2] = greyS;
         }
+    }
+
+    public static string GetInternalText(string filename)
+    {
+        try
+        {
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            var resourceName = assembly.GetManifestResourceNames().FirstOrDefault(str => str.EndsWith(filename));
+            if (resourceName == null) return null;
+
+            using Stream stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream == null) return null;
+            using StreamReader reader = new StreamReader(stream);
+            return reader.ReadToEnd();
+        }
+        catch { return null; }
     }
 
     // Strings and Paths
@@ -465,6 +490,7 @@ public static class WinFormsUtil
         
         if (c is TabControl tc)
         {
+            tc.Appearance = TabAppearance.Normal;
             SetDoubleBuffered(tc);
         }
 

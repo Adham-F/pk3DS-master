@@ -41,6 +41,7 @@ public partial class ItemEditor7 : Form
     }
 
     private byte[][] files;
+    public byte[][] Files => files;
     private readonly string[] itemlist = Main.Config.GetText(TextName.ItemNames);
     private string[] itemflavor = Main.Config.GetText(TextName.ItemFlavor);
 

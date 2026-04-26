@@ -15,6 +15,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <EmbeddedResource Include="Resources\learnsets.txt" />
+    <EmbeddedResource Include="Resources\randsettings.txt" />
+    <EmbeddedResource Include="Resources\quotes.txt" />
+    <EmbeddedResource Include="Resources\graidents.txt" />
+    <EmbeddedResource Include="Resources\Pokemon_Move_Changes_Gen7_to_Gen9.txt" />
+    <EmbeddedResource Include="Resources\exclusivesandsuch.txt" />
   </ItemGroup>
   
   <ItemGroup>
