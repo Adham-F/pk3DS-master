@@ -582,14 +582,36 @@ namespace pk3DS.WinForms
                     if (b != -1) off = (uint)(b + ((int)numTargetOverride.Value * 4));
                 }
 
-                // Modular TM Item ID support
+                // Modular TM support (Universal Expansion Detection)
                 string tmKey = r.Keys.FirstOrDefault(k => k.IndexOf("TM #", StringComparison.OrdinalIgnoreCase) >= 0);
-                if (tmKey != null && int.TryParse(r[tmKey], out int tmNum) && tmNum >= 108 && numTargetOverride.Value > 0)
+                if (tmKey != null && int.TryParse(r[tmKey], out int tmNum) && tmNum >= 1)
                 {
-                    // If this is the TM Item ID table, override the hex with the new calculated Item ID
-                    // Base ID comes from numTargetOverride
-                    int newItemID = (int)numTargetOverride.Value + (tmNum - 108);
-                    p = BitConverter.GetBytes((ushort)newItemID);
+                    if (isCodeBin)
+                    {
+                        // Universal TM Table Detection: TM01 (Work Up), TM02 (Dragon Claw), TM03 (Psyshock)
+                        byte[] tmSig = [0x0E, 0x02, 0x51, 0x01, 0xD9, 0x01];
+                        int baseOfs = Util.IndexOfBytes(bin, tmSig, 0x100000, 0);
+
+                        if (tmNum >= 108)
+                        {
+                            // Redirect TM 108+ to the research sandbox at 0x4BB794 by default,
+                            // unless a custom table was detected that already contains these slots.
+                            off = (uint)(0x4BB794 + (2 * (tmNum - 108)));
+                            if (baseOfs >= 0 && baseOfs > 0x100000) 
+                                off = (uint)(baseOfs + (2 * (tmNum - 1)));
+                        }
+                        else if (baseOfs >= 0)
+                        {
+                            // If TM01-107 table was relocated, use the new base
+                            off = (uint)(baseOfs + (2 * (tmNum - 1)));
+                        }
+                    }
+                    if (numTargetOverride.Value > 0)
+                    {
+                        // Override Item ID if applicable (Expansion IDs start at numTargetOverride)
+                        int newItemID = (int)numTargetOverride.Value + Math.Max(0, tmNum - 108);
+                        p = BitConverter.GetBytes((ushort)newItemID);
+                    }
                 }
 
                 if (off + p.Length <= bin.Length) {

@@ -60,22 +60,36 @@ namespace pk3DS.Core.CTR
         {
             int fileSize = data.Length;
             uint segmentTableOffset = ReadU32(data, 0xC8);
+            if (ReadU32(data, 0x80) != 0x304F5243) // "CRO0" magic
+                return data; // Not a CRO file, do not expand.
+            
             uint[] startTable = GetSegmentStartIndices(data);
 
-            uint skipCheck = 0;
+            uint segmentEnd = 0;
             // .code, .rodata, .data
-            if (section == 'c') skipCheck = startTable[0] + ReadU32(data, (int)segmentTableOffset + 4);
-            else if (section == 'r') skipCheck = startTable[1] + ReadU32(data, (int)segmentTableOffset + 0x10);
-            else if (section == 'd') skipCheck = startTable[2] + ReadU32(data, (int)segmentTableOffset + 0x1C);
-            else skipCheck = (uint)data.Length;
+            if (section == 'c') segmentEnd = startTable[0] + ReadU32(data, (int)segmentTableOffset + 4);
+            else if (section == 'r') segmentEnd = startTable[1] + ReadU32(data, (int)segmentTableOffset + 0x10);
+            else if (section == 'd') segmentEnd = startTable[2] + ReadU32(data, (int)segmentTableOffset + 0x1C);
+            else segmentEnd = (uint)data.Length;
 
+            // Use insertion point if provided and valid, otherwise append to end of segment
+            uint skipCheck = (insertionPointRequested >= 0) ? (uint)insertionPointRequested : segmentEnd;
             int skip = (int)skipCheck;
             if (skip > fileSize) skip = fileSize; // Safety clamp
 
-            byte[] newData = new byte[fileSize + bytesToAdd];
-            Array.Copy(data, 0, newData, 0, skip);
-            for (int i = 0; i < bytesToAdd; i++) newData[skip + i] = fill;
-            Array.Copy(data, skip, newData, skip + bytesToAdd, fileSize - skip);
+            byte[] newData = new byte[fileSize + Math.Abs(bytesToAdd)];
+            if (bytesToAdd > 0)
+            {
+                Array.Copy(data, 0, newData, 0, skip);
+                for (int i = 0; i < bytesToAdd; i++) newData[skip + i] = fill;
+                Array.Copy(data, skip, newData, skip + bytesToAdd, fileSize - skip);
+            }
+            else // Deletion
+            {
+                int del = Math.Abs(bytesToAdd);
+                Array.Copy(data, 0, newData, 0, skip);
+                Array.Copy(data, skip + del, newData, skip, fileSize - skip - del);
+            }
 
             // 1. Update Segment Table entries and starts
             if (segmentTableOffset >= skip) segmentTableOffset += (uint)bytesToAdd;

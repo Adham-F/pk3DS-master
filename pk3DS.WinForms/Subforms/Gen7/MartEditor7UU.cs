@@ -19,6 +19,9 @@ public partial class MartEditor7UU : Form
     private int ofs_Items = -1;
     private int ofs_BP = -1;
     private int ofs_Tutors = -1;
+    private int ptr_Items = -1;
+    private int ptr_BP = -1;
+    private int ptr_Counts = -1;
     private int cachedCodeOfs = -1;
 
     private string path_Counts => Path.Combine(Main.RomFSPath, "mart_counts_ofs.txt");
@@ -38,9 +41,18 @@ public partial class MartEditor7UU : Form
 
         data = File.ReadAllBytes(CROPath);
         LoadOffsets();
-        
-        len_BPItem = data.Skip(ofs_Counts + 4).Take(7).ToArray();
-        len_Items = data.Skip(ofs_Counts + 4 + 7).Take(28).ToArray(); 
+
+        // Safety: Ensure counts are loaded AFTER we are sure about ofs_Counts
+        if (ofs_Counts > 0 && ofs_Counts < data.Length - 40)
+        {
+            len_BPItem = data.Skip(ofs_Counts + 4).Take(7).ToArray();
+            len_Items = data.Skip(ofs_Counts + 11).Take(28).ToArray();
+        }
+        else
+        {
+            len_BPItem = new byte[7];
+            len_Items = new byte[28];
+        }
 
         itemlist[0] = "";
         SetupDGV();
@@ -48,6 +60,8 @@ public partial class MartEditor7UU : Form
         CB_LocationBPItem.Items.AddRange(locationsBP);
         CB_Location.SelectedIndex =
             CB_LocationBPItem.SelectedIndex = 0;
+
+        B_Add.Enabled = B_Del.Enabled = false;
     }
 
     private void LoadOffsets()
@@ -63,26 +77,37 @@ public partial class MartEditor7UU : Form
 
     private void ScanForSignatures()
     {
-        // 1. Counts Table Signature: [0C, 0C, 0C, 0C, 0E, 10, 0B, 0C, 0C, 15, 0A, 09] (USUM Defaults)
-        byte[] sig_counts = [0x0C, 0x0C, 0x0C, 0x0C, 0x0E, 0x10, 0x0B, 0x0C, 0x0C, 0x15, 0x0A, 0x09];
+        // Immutable Tutor counts are the safest anchor: [15, 17, 17, 15]
+        byte[] sig_counts = [0x0F, 0x11, 0x11, 0x0F];
         int idx_c = Util.IndexOfBytes(data, sig_counts, 0, data.Length - sig_counts.Length);
-        if (idx_c > 0) ofs_Counts = idx_c; else ofs_Counts = 0x52D2;
+        if (idx_c >= 0) ofs_Counts = idx_c; else ofs_Counts = 0x52D2;
 
-        // 2. Mart Item Table Signature: [Poke ball, Great Ball, Potion, Super Potion, Antidote]
-        byte[] sig_items = [0x01, 0x00, 0x02, 0x00, 0x11, 0x00, 0x12, 0x00, 0x14, 0x00];
+        // Mart items pattern: Poke Ball (0x04), Great Ball (0x03), Ultra Ball (0x02)
+        byte[] sig_items = [0x04, 0x00, 0x03, 0x00, 0x02, 0x00, 0x05, 0x00];
         int idx_i = Util.IndexOfBytes(data, sig_items, 0, data.Length - sig_items.Length);
-        if (idx_i > 0) ofs_Items = idx_i; else ofs_Items = 0x50BC;
+        if (idx_i >= 0) ofs_Items = idx_i; else ofs_Items = 0x50BC;
 
-        // 3. BP Item Table Signature: [Rare Candy, PP Up, Max Revive, Max Elixir, HP Up]
-        byte[] sig_bp = [0x32, 0x00, 0x31, 0x00, 0x0F, 0x00, 0x11, 0x00, 0x2D, 0x00];
+        // BP items pattern: Rare Candy (0x32) at Battle Royal Dome
+        byte[] sig_bp = [0x32, 0x00, 0x30, 0x00, 0x21, 0x01, 0x10, 0x00];
         int idx_b = Util.IndexOfBytes(data, sig_bp, 0, data.Length - sig_bp.Length);
-        if (idx_b > 0) ofs_BP = idx_b; else ofs_BP = 0x52FA;
+        if (idx_b >= 0) ofs_BP = idx_b; else ofs_BP = 0x5412;
 
-        // 4. Tutor Table Signature: [Gyro Ball, 12, Gyro Ball, 12] (Wait, repeating Gyro ball in data?)
-        // Let's use Gyro Ball (0x1C1) and 12 BP (0x0C)
-        byte[] sig_tutor = [0xC1, 0x01, 0x00, 0x00, 0x0C, 0x00, 0x00, 0x00];
-        int idx_t = Util.IndexOfBytes(data, sig_tutor, 0, data.Length - sig_tutor.Length);
-        if (idx_t > 0) ofs_Tutors = idx_t; else ofs_Tutors = 0x54DE;
+        // Tutor data pattern: Bind (0x0182)
+        byte[] sig_t = [0x82, 0x01, 0x04, 0x00, 0xAC, 0x01, 0x0C, 0x00];
+        int idx_t = Util.IndexOfBytes(data, sig_t, 0, data.Length - sig_t.Length);
+        if (idx_t >= 0) ofs_Tutors = idx_t; else ofs_Tutors = 0x54DE;
+
+        // Dynamic Pointer Hunting
+        // Search for the Item Pointer Table by looking for the current offset of the first Mart
+        byte[] pI = BitConverter.GetBytes((uint)ofs_Items);
+        ptr_Items = Util.IndexOfBytes(data, pI, 0, data.Length - 4);
+
+        byte[] pB = BitConverter.GetBytes((uint)ofs_BP);
+        ptr_BP = Util.IndexOfBytes(data, pB, 0, data.Length - 4);
+
+        // Pointer to the count table (anchor to Tutors)
+        byte[] pC = BitConverter.GetBytes((uint)ofs_Counts);
+        ptr_Counts = Util.IndexOfBytes(data, pC, 0, data.Length - 4);
 
         SaveOffsets();
     }
@@ -101,7 +126,45 @@ public partial class MartEditor7UU : Form
         if (ofs_Items >= insertionPoint) ofs_Items += change;
         if (ofs_BP >= insertionPoint) ofs_BP += change;
         if (ofs_Tutors >= insertionPoint) ofs_Tutors += change;
+
+        // Update Pointer Tables in the binary
+        SyncPointerTables(insertionPoint, change);
+
         SaveOffsets();
+    }
+
+    private void SyncPointerTables(int insertionPoint, int change)
+    {
+        if (ptr_Items >= 0)
+        {
+            for (int i = 0; i < 28; i++) // Mart Item Pointers
+            {
+                int pOfs = ptr_Items + i * 4;
+                uint val = BitConverter.ToUInt32(data, pOfs);
+                if (val >= (uint)insertionPoint) 
+                    Array.Copy(BitConverter.GetBytes(val + change), 0, data, pOfs, 4);
+            }
+        }
+        if (ptr_BP >= 0)
+        {
+            for (int i = 0; i < 7; i++) // BP Item Pointers
+            {
+                int pOfs = ptr_BP + i * 4;
+                uint val = BitConverter.ToUInt32(data, pOfs);
+                if (val >= (uint)insertionPoint) 
+                    Array.Copy(BitConverter.GetBytes(val + change), 0, data, pOfs, 4);
+            }
+        }
+        if (ptr_Counts >= 0)
+        {
+            for (int i = 0; i < 3; i++) // Pointer to Counts Tables (Mart, BP, Tutor)
+            {
+                int pOfs = ptr_Counts + i * 4;
+                uint val = BitConverter.ToUInt32(data, pOfs);
+                if (val >= (uint)insertionPoint) 
+                    Array.Copy(BitConverter.GetBytes(val + change), 0, data, pOfs, 4);
+            }
+        }
     }
     private readonly string[] itemlist = Main.Config.GetText(TextName.ItemNames);
 
@@ -158,6 +221,8 @@ public partial class MartEditor7UU : Form
     {
         dgvItem.Items.AddRange(itemlist); // add only the Names
         dgvItemBP.Items.AddRange(itemlist); // add only the Names
+        dgv.DataError += (s, e) => e.ThrowException = false;
+        dgvbp.DataError += (s, e) => e.ThrowException = false;
     }
 
     private int entryItem = -1;
@@ -167,40 +232,90 @@ public partial class MartEditor7UU : Form
     {
         if (entryItem > -1) SetListItem();
         entryItem = CB_Location.SelectedIndex;
-        GetListItem();
+        if (entryItem >= 0) GetListItem();
     }
 
     private void ChangeIndexBPItem(object sender, EventArgs e)
     {
         if (entryBPItem > -1) SetListBPItem();
         entryBPItem = CB_LocationBPItem.SelectedIndex;
-        GetListBPItem();
+        if (entryBPItem >= 0) GetListBPItem();
     }
 
     private void GetListItem()
     {
-        dgv.Rows.Clear();
-        int count = len_Items[entryItem];
-        dgv.Rows.Add(count);
-        var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
-        for (int i = 0; i < count; i++)
+        try
         {
-            dgv.Rows[i].Cells[0].Value = i.ToString();
-            dgv.Rows[i].Cells[1].Value = itemlist[BitConverter.ToUInt16(data, ofs + (2 * i))];
+            if (entryItem < 0 || entryItem >= len_Items.Length) 
+                return;
+
+            dgv.Rows.Clear();
+            int count = len_Items[entryItem];
+            if (count > 100) count = 100; // Sanity check to prevent UI hang/crash
+            
+            dgv.Rows.Add(count);
+            var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
+            for (int i = 0; i < count; i++)
+            {
+                if (ofs + (2 * i) + 1 >= data.Length) break;
+                ushort itemID = BitConverter.ToUInt16(data, ofs + (2 * i));
+                
+                dgv.Rows[i].Cells[0].Value = i.ToString();
+                string val;
+                if (itemID < itemlist.Length)
+                    val = itemlist[itemID];
+                else
+                    val = $"(Unknown: {itemID})";
+
+                var cell = (DataGridViewComboBoxCell)dgv.Rows[i].Cells[1];
+                if (!cell.Items.Contains(val))
+                    cell.Items.Add(val);
+                cell.Value = val;
+            }
+        }
+        catch (Exception ex)
+        {
+            WinFormsUtil.Error("Crash in GetListItem", $"entryItem: {entryItem}", $"len_Items: {len_Items?.Length}", ex.ToString());
         }
     }
 
     private void GetListBPItem()
     {
-        dgvbp.Rows.Clear();
-        int count = len_BPItem[entryBPItem];
-        dgvbp.Rows.Add(count);
-        var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
-        for (int i = 0; i < count; i++)
+        try
         {
-            dgvbp.Rows[i].Cells[0].Value = i.ToString();
-            dgvbp.Rows[i].Cells[1].Value = itemlist[BitConverter.ToUInt16(data, ofs + (4 * i))];
-            dgvbp.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, ofs + (4 * i) + 2).ToString();
+            if (entryBPItem < 0 || entryBPItem >= len_BPItem.Length) 
+                return;
+
+            dgvbp.Rows.Clear();
+            int count = len_BPItem[entryBPItem];
+            if (count > 100) count = 100;
+
+            dgvbp.Rows.Add(count);
+            var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
+            for (int i = 0; i < count; i++)
+            {
+                if (ofs + (4 * i) + 3 >= data.Length) break;
+                ushort itemID = BitConverter.ToUInt16(data, ofs + (4 * i));
+                ushort price = BitConverter.ToUInt16(data, ofs + (4 * i) + 2);
+
+                dgvbp.Rows[i].Cells[0].Value = i.ToString();
+                string val;
+                if (itemID < itemlist.Length)
+                    val = itemlist[itemID];
+                else
+                    val = $"(Unknown: {itemID})";
+
+                var cell = (DataGridViewComboBoxCell)dgvbp.Rows[i].Cells[1];
+                if (!cell.Items.Contains(val))
+                    cell.Items.Add(val);
+                cell.Value = val;
+
+                dgvbp.Rows[i].Cells[2].Value = price.ToString();
+            }
+        }
+        catch (Exception ex)
+        {
+            WinFormsUtil.Error("Crash in GetListBPItem", $"entryBPItem: {entryBPItem}", $"len_BPItem: {len_BPItem?.Length}", ex.ToString());
         }
     }
 
@@ -309,6 +424,9 @@ public partial class MartEditor7UU : Form
 
     private void B_Add_Click(object sender, EventArgs e)
     {
+        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with shop expansion in USUM.");
+        return;
+        /*
         bool isBP = tabControl1.SelectedIndex == 1;
         int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
         if (entry < 0) return;
@@ -325,17 +443,25 @@ public partial class MartEditor7UU : Form
 
         // Update counts in the binary
         counts[entry]++;
+        
+        // Recalculate stale count table offset after expansion
+        if (countOfs >= insertionPoint) countOfs += itemSize;
         data[countOfs + entry] = counts[entry];
 
-        // Recalculate offsets after expansion!
+        // Recalculate global offsets after expansion!
         UpdateOffsets(insertionPoint, itemSize);
 
-        if (isBP) GetListBPItem(); else GetListItem();
+        // Sync and refresh
+        if (isBP) { entryBPItem = entry; GetListBPItem(); } else { entryItem = entry; GetListItem(); }
         WinFormsUtil.Alert("Item slot added. Data shifted.");
+        */
     }
 
     private void B_Del_Click(object sender, EventArgs e)
     {
+        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with shop expansion in USUM.");
+        return;
+        /*
         bool isBP = tabControl1.SelectedIndex == 1;
         int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
         if (entry < 0) return;
@@ -343,27 +469,26 @@ public partial class MartEditor7UU : Form
         byte[] counts = isBP ? len_BPItem : len_Items;
         if (counts[entry] <= 1)
         {
-            WinFormsUtil.Error("Cannot delete the last item in a shop.");
+            WinFormsUtil.Alert("Cannot delete last item.");
             return;
         }
 
-        if (isBP) SetListBPItem(); else SetListItem();
-
         int itemSize = isBP ? 4 : 2;
         int baseOfs = isBP ? ofs_BP : ofs_Items;
-        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 4 + 7);
+        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 11);
+        int deletionPoint = baseOfs + ((counts.Take(entry + 1).Sum(z => z) - 1) * itemSize);
 
-        int deletionPoint = baseOfs + (counts.Take(entry + 1).Sum(z => z) * itemSize) - itemSize;
         data = CROUtil.ExpandSegment(data, 'd', -itemSize, deletionPoint);
-
         counts[entry]--;
-        data[countOfs + entry] = counts[entry];
         
-        // Recalculate offsets after deletion!
+        if (countOfs >= deletionPoint) countOfs -= itemSize;
+        data[countOfs + entry] = counts[entry];
+
         UpdateOffsets(deletionPoint, -itemSize);
 
-        if (isBP) GetListBPItem(); else GetListItem();
-        WinFormsUtil.Alert("Item removed. Data shifted.");
+        if (isBP) { entryBPItem = entry; GetListBPItem(); } else { entryItem = entry; GetListItem(); }
+        WinFormsUtil.Alert("Item slot deleted. Data shifted.");
+        */
     }
 
     private void SyncMartsToCodeBin()
@@ -393,8 +518,33 @@ public partial class MartEditor7UU : Form
         {
             for (int i = 0; i < len_Items.Length; i++)
                 codeBin[cachedCodeOfs + i * 2] = len_Items[i];
+        }
+
+        // NEW: Multi-file offset synchronization
+        SyncExecutablePointers(codeBin);
             
-            File.WriteAllBytes(codePath, codeBin);
+        File.WriteAllBytes(codePath, codeBin);
+    }
+
+    private void SyncExecutablePointers(byte[] codeBin)
+    {
+        // Define the mapping of Vanilla -> Current offsets
+        // Vanilla USUM: Items=0x50BC, Counts=0x52D2, BP=0x5412, Tutor=0x54DE
+        Dictionary<uint, uint> map = new Dictionary<uint, uint>
+        {
+            { 0x50BC, (uint)ofs_Items },
+            { 0x52D2, (uint)ofs_Counts },
+            { 0x5412, (uint)ofs_BP },
+            { 0x54DE, (uint)ofs_Tutors }
+        };
+
+        for (int i = 0; i < codeBin.Length - 4; i += 4)
+        {
+            uint val = BitConverter.ToUInt32(codeBin, i);
+            if (map.TryGetValue(val, out uint newVal) && val != newVal)
+            {
+                Array.Copy(BitConverter.GetBytes(newVal), 0, codeBin, i, 4);
+            }
         }
     }
 }

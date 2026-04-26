@@ -32,17 +32,35 @@ public partial class TutorEditor7 : Form
         SetupDGV();
         CB_LocationBPMove.Items.AddRange(locationsTutor);
         CB_LocationBPMove.SelectedIndex = 0;
+        B_AddMove.Enabled = B_DelMove.Enabled = false;
     }
 
     private void LoadShopOffsets()
     {
-        // Verified USUM v1.0 hard-locked offsets
-        // Persistent Overrides (Universal Engine tracker)
-        ofs_counts = pk3DS.Core.Modding.ProjectState.Instance.GetOffset("TutorCountsOffset", 0x52D2);
-        ofs_data = pk3DS.Core.Modding.ProjectState.Instance.GetOffset("TutorDataOffset", 0x54DE);
+        ofs_counts = ProjectState.Instance.GetOffset("TutorCountsOffset", 0);
+        ofs_data = ProjectState.Instance.GetOffset("TutorDataOffset", 0);
+
+        if (ofs_counts <= 0 || ofs_data <= 0)
+            ScanForSignatures();
 
         len_BPTutor = data.Skip(ofs_counts).Take(4).ToArray();
         Text = $"Tutor Editor (Anchor: 0x{ofs_data:X})";
+    }
+
+    private void ScanForSignatures()
+    {
+        // Counts table in Shop.cro for USUM: [Tutor0, Tutor1, Tutor2, Tutor3, ?x4, BP0...BP6, Mart0...]
+        // Tutor counts are 15, 17, 17, 15
+        byte[] sig_counts = [0x0F, 0x11, 0x11, 0x0F];
+        int idx_c = Util.IndexOfBytes(data, sig_counts, 0, data.Length - sig_counts.Length);
+        if (idx_c >= 0) ofs_counts = idx_c; else ofs_counts = 0x52D2;
+
+        // Tutor data table starts with first move of Big Wave Beach (usually 0x0182 = Bind)
+        byte[] sig_data = [0x82, 0x01, 0x04, 0x00, 0xAC, 0x01, 0x0C, 0x00];
+        int idx_d = Util.IndexOfBytes(data, sig_data, 0, data.Length - sig_data.Length);
+        if (idx_d >= 0) ofs_data = idx_d; else ofs_data = 0x54DE;
+        
+        SaveShopOffsets();
     }
 
     private void SaveShopOffsets()
@@ -84,12 +102,12 @@ public partial class TutorEditor7 : Form
 
         if (offset <= 0)
         {
-            // Scan for marker: _on_off\xFF
-            byte[] sig = { 0x5F, 0x6F, 0x6E, 0x5F, 0x6F, 0x66, 0x66, 0xFF };
-            int sigIdx = pk3DS.Core.Util.IndexOfBytes(codeBin, sig, 0, codeBin.Length);
+            // USUM Tutor Limit pattern: [15, 0, 17, 0, 17, 0, 15, 0]
+            byte[] sig = { 0x0F, 0x00, 0x11, 0x00, 0x11, 0x00, 0x0F, 0x00 };
+            int sigIdx = pk3DS.Core.Util.IndexOfBytes(codeBin, sig, 0x100000, 0);
             if (sigIdx >= 0)
             {
-                offset = sigIdx + sig.Length; 
+                offset = sigIdx; 
                 ProjectState.Instance.TutorCodeOffset = offset;
                 ProjectState.Instance.Save();
             }
@@ -129,6 +147,7 @@ public partial class TutorEditor7 : Form
 
     private void GetListBPMove()
     {
+        if (entryBPMove < 0 || entryBPMove >= len_BPTutor.Length) return;
         dgvmv.Rows.Clear();
         int count = len_BPTutor[entryBPMove];
         dgvmv.Rows.Add(count);
@@ -149,6 +168,7 @@ public partial class TutorEditor7 : Form
 
     private void SetListBPMove()
     {
+        if (entryBPMove < 0 || entryBPMove >= len_BPTutor.Length) return;
         int count = dgvmv.Rows.Count;
         if (count != len_BPTutor[entryBPMove])
         {
@@ -162,7 +182,7 @@ public partial class TutorEditor7 : Form
                 int newOfs = data.Length;
                 
                 data = pk3DS.Core.CTR.CROUtil.ExpandSegment(data, 'd', newDataLen);
-                Array.Copy(data, oldOfs, data, newOfs, oldDataLen);
+                pk3DS.Core.CTR.CROUtil.RelocateTable(data, (uint)oldOfs - pk3DS.Core.CTR.CROUtil.GetSegmentStartIndices(data)[2], 2, (uint)newOfs, oldDataLen);
                 ofs_data = newOfs;
             }
         }
@@ -191,18 +211,26 @@ public partial class TutorEditor7 : Form
 
     private void B_AddMove_Click(object sender, EventArgs e)
     {
+        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with tutor expansion in USUM.");
+        return;
+        /*
         if (entryBPMove < 0) return;
         dgvmv.Rows.Add(1);
         int entries = dgvmv.Rows.Count;
         dgvmv.Rows[entries - 1].Cells[0].Value = (entries - 1).ToString();
         dgvmv.Rows[entries - 1].Cells[1].Value = movelist[0];
         dgvmv.Rows[entries - 1].Cells[2].Value = "4";
+        */
     }
 
     private void B_DelMove_Click(object sender, EventArgs e)
     {
+        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with tutor expansion in USUM.");
+        return;
+        /*
         if (entryBPMove < 0 || dgvmv.Rows.Count == 0) return;
         dgvmv.Rows.RemoveAt(dgvmv.Rows.Count - 1);
+        */
     }
 
     public static (int[] moves, int[] lengths) GetUSUMTutorData(string croPath, int[] defaultMoves)

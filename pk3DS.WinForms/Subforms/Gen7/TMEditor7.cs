@@ -19,9 +19,22 @@ public partial class TMEditor7 : Form
         if (!File.Exists(files[0]) || !Path.GetFileNameWithoutExtension(files[0]).Contains("code")) { WinFormsUtil.Alert("No .code.bin detected."); Close(); }
         data = File.ReadAllBytes(files[0]);
         if (data.Length % 0x200 != 0) { WinFormsUtil.Alert(".code.bin not decompressed. Aborting."); Close(); }
-        offset = Util.IndexOfBytes(data, Signature, 0x400000, 0) + Signature.Length;
-        if (Main.Config.USUM)
-            offset += 0x22;
+
+        // Universal TM Table Detection
+        // TM01: Work Up (526), TM02: Dragon Claw (337), TM03: Psyshock (473)
+        // Little-endian ushorts: [0x0E, 0x02, 0x51, 0x01, 0xD9, 0x01]
+        byte[] tmSig = [0x0E, 0x02, 0x51, 0x01, 0xD9, 0x01];
+        int foundOfs = Util.IndexOfBytes(data, tmSig, 0x100000, 0);
+        if (foundOfs >= 0)
+        {
+            offset = foundOfs;
+        }
+        else
+        {
+            // Fallback to standard signature search
+            offset = Util.IndexOfBytes(data, Signature, 0x400000, 0) + Signature.Length;
+            if (Main.Config.USUM) offset += 0x22;
+        }
         codebin = files[0];
         movelist[0] = "";
 
@@ -72,6 +85,23 @@ public partial class TMEditor7 : Form
     private void GetDataOffset()
     {
         dataoffset = offset; // reset
+    }
+
+    private int GetTMOffset(int index)
+    {
+        // TM01 to TM100 are always contiguous from the detected base
+        if (index < 100) return offset + (2 * index);
+
+        // For expanded TMs (101+), we check if there's a second table (sandbox)
+        // or if they are contiguous. Most expansion patches jump at 108.
+        if (index >= 107)
+        {
+             // If a known sandbox offset is provided in the textbox or research, use it.
+             // Otherwise, check for the 108+ sandbox (0x4BB794) if it contains a move ID.
+             if (offset < 0x100000 && data.Length > 0x4BB794 + 2)
+                 return 0x4BB794 + (2 * (index - 107));
+        }
+        return offset + (2 * index);
     }
 
     private void SetupDGV()
@@ -133,7 +163,7 @@ public partial class TMEditor7 : Form
         }
 
         for (int i = 0; i < count; i++) 
-            tms.Add(BitConverter.ToUInt16(data, currentOffset + (2 * i)));
+            tms.Add(BitConverter.ToUInt16(data, GetTMOffset(i)));
 
         ushort[] tmlist = [.. tms];
         for (int i = 0; i < tmlist.Length; i++)
@@ -202,7 +232,7 @@ public partial class TMEditor7 : Form
 
         int count = Math.Min(tmlist.Length, (int)NUD_TMCount.Value);
         for (int i = 0; i < count; i++) 
-            Array.Copy(BitConverter.GetBytes(tmlist[i]), 0, data, currentOffset + (2 * i), 2);
+            Array.Copy(BitConverter.GetBytes(tmlist[i]), 0, data, GetTMOffset(i), 2);
 
         // Update descriptions
         string[] itemDescriptions = Main.Config.GetText(TextName.ItemFlavor);
@@ -218,7 +248,11 @@ public partial class TMEditor7 : Form
         for (int i = 95; i < 100 && i < tmlist.Length; i++) 
             itemDescriptions[690 + i - 95] = moveDescriptions[tmlist[i]];
             
-        // Extra TMs (108+)
+        // Extra TMs (101-107) - Item IDs 721-727
+        for (int i = 100; i < 107 && i < tmlist.Length; i++)
+            itemDescriptions[721 + (i - 100)] = moveDescriptions[tmlist[i]];
+
+        // Extra TMs (108+) - Start from expandedTMStartID (default 960)
         if (itemDescriptions.Length > expandedTMStartID)
         {
             for (int i = 107; i < tmlist.Length; i++)
