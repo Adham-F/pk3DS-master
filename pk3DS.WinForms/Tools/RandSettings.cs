@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -17,10 +17,19 @@ public static class RandSettings
         int ctr = 0;
         while (ctr < lines.Length)
         {
+            if (string.IsNullOrWhiteSpace(lines[ctr]))
+            {
+                ctr++;
+                continue;
+            }
+
             string formname = lines[ctr];
             int end = Array.FindIndex(lines, ctr, string.IsNullOrWhiteSpace);
+            if (end == -1)
+                end = lines.Length;
+
             var list = GetList(lines, ctr + 1, end - 1);
-            Settings.Add(formname, list);
+            Settings[formname] = list;
             ctr = end + 1;
         }
     }
@@ -121,7 +130,7 @@ public static class RandSettings
         for (int i = start; i <= end; i++)
         {
             var val = new NameValue(lines[i]);
-            if (val.Name != null)
+            if (!string.IsNullOrWhiteSpace(val.Name))
                 list.Add(val);
         }
         return list;
