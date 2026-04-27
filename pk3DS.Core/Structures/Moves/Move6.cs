@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace pk3DS.Core.Structures;
 
@@ -17,9 +17,9 @@ public class Move6 : Move
     public override int Priority { get => Data[0x06]; set => Data[0x06] = (byte)value; }
     public override int HitMin { get => Data[0x07] & 0xF; set => Data[0x07] = (byte)(HitMax << 4 | value); }
     public override int HitMax { get => Data[0x07] >> 4; set => Data[0x07] = (byte)(value << 4 | HitMin); }
-    public override int Inflict { get => BitConverter.ToUInt16(Data, 0x08); set => BitConverter.GetBytes((ushort)value).CopyTo(Data, 0x08); }
-    public override int InflictPercent { get => Data[0x0A]; set => Data[0x0A] = (byte)value; }
-    public override MoveInflictDuration InflictCount { get => (MoveInflictDuration)Data[0x0B]; set => Data[0x0B] = (byte)value; }
+    public override int Inflict { get => Data[0x09]; set => Data[0x09] = (byte)value; }
+    public override int InflictPercent { get => Data[0x0B]; set => Data[0x0B] = (byte)value; }
+    public override MoveInflictDuration InflictCount { get => (MoveInflictDuration)Data[0x0A]; set => Data[0x0A] = (byte)value; }
     public override int TurnMin { get => Data[0x0C]; set => Data[0x0C] = (byte)value; }
     public override int TurnMax { get => Data[0x0D]; set => Data[0x0D] = (byte)value; }
     public override int CritStage { get => Data[0x0E]; set => Data[0x0E] = (byte)value; }

@@ -120,6 +120,8 @@ partial class MoveEditor7
         this.tpLog = new System.Windows.Forms.TabPage();
         this.rtbLog = new System.Windows.Forms.RichTextBox();
         this.B_VanillaLog = new System.Windows.Forms.Button();
+        this.B_CopyData = new System.Windows.Forms.Button();
+        this.B_PasteData = new System.Windows.Forms.Button();
 
         ((System.ComponentModel.ISupportInitialize)(this.NUD_HitMax)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.NUD_HitMin)).BeginInit();
@@ -820,6 +822,26 @@ partial class MoveEditor7
         this.B_ImportTxt.UseVisualStyleBackColor = true;
         this.B_ImportTxt.Click += new System.EventHandler(this.B_ImportTxt_Click);
         // 
+        // B_CopyData
+        // 
+        this.B_CopyData.Location = new System.Drawing.Point(550, 330); // Moved to bottom-left
+        this.B_CopyData.Name = "B_CopyData";
+        this.B_CopyData.Size = new System.Drawing.Size(75, 23);
+        this.B_CopyData.TabIndex = 100;
+        this.B_CopyData.Text = "Copy Data";
+        this.B_CopyData.UseVisualStyleBackColor = true;
+        this.B_CopyData.Click += new System.EventHandler(this.B_CopyData_Click);
+        // 
+        // B_PasteData
+        // 
+        this.B_PasteData.Location = new System.Drawing.Point(630, 330); // Placed right next to Copy
+        this.B_PasteData.Name = "B_PasteData";
+        this.B_PasteData.Size = new System.Drawing.Size(75, 23);
+        this.B_PasteData.TabIndex = 101;
+        this.B_PasteData.Text = "Paste Data";
+        this.B_PasteData.UseVisualStyleBackColor = true;
+        this.B_PasteData.Click += new System.EventHandler(this.B_PasteData_Click);
+        // 
         // B_VanillaLog
         // 
         this.B_VanillaLog.Location = new System.Drawing.Point(10, 240);
@@ -1195,6 +1217,8 @@ partial class MoveEditor7
         this.tpEditor.Controls.Add(this.L_Move);
         this.tpEditor.Controls.Add(this.CB_Move);
         this.tpEditor.Controls.Add(this.B_ChampionsPP);
+        this.tpEditor.Controls.Add(this.B_CopyData);
+        this.tpEditor.Controls.Add(this.B_PasteData);
         this.tpEditor.Location = new System.Drawing.Point(4, 22);
         this.tpEditor.Name = "tpEditor";
         this.tpEditor.Padding = new System.Windows.Forms.Padding(3);
@@ -1372,4 +1396,6 @@ partial class MoveEditor7
     private System.Windows.Forms.Button B_ChampionsPP;
     private System.Windows.Forms.Button B_VanillaLog;
     private System.Windows.Forms.Button B_RenameFlags;
+    private System.Windows.Forms.Button B_CopyData;
+    private System.Windows.Forms.Button B_PasteData;
     }

@@ -324,6 +324,50 @@ namespace pk3DS.WinForms
             btnDynamicDump = new Button { Text = "Dump Dynamic Table Offsets", Dock = DockStyle.Top, Height = 40, FlatStyle = FlatStyle.Flat, BackColor = Color.Indigo, ForeColor = Color.White };
             splitInspector.Panel2.Controls.Add(btnDynamicDump);
             btnDynamicDump.Click += (s, e) => ExecuteDynamicDump();
+
+            var btnShopDump = new Button { Text = "Dump Shop RPT Targets", Dock = DockStyle.Top, Height = 40, FlatStyle = FlatStyle.Flat, BackColor = Color.DarkSlateBlue, ForeColor = Color.White };
+            splitInspector.Panel2.Controls.Add(btnShopDump);
+            btnShopDump.Click += (s, e) => ExecuteShopRPTDump();
+        }
+
+        private void ExecuteShopRPTDump()
+        {
+            string path = GetTargetPath("Shop.cro", null);
+            if (path == null || !File.Exists(path)) { LogDeployment("Shop.cro not found. Dump aborted."); return; }
+            byte[] cro = File.ReadAllBytes(path);
+            var sb = new StringBuilder();
+            sb.AppendLine("=== SHOP.CRO RPT DUMP ===");
+
+            var mappings = new Dictionary<uint, string> {
+                { 0x51C, "Mart Size Table" },
+                { 0x510, "BP Size Table" },
+                { 0x504, "Tutor Size Table" },
+                { 0x4EC, "Melemele Tutor" },
+                { 0x570, "Akala Tutor" },
+                { 0x57C, "Ula'ula Tutor" },
+                { 0x588, "Battle Tree Tutor" },
+                { 0x534, "Royale Middle" },
+                { 0x528, "Royale Left" },
+                { 0x540, "Royale Right" },
+                { 0x54C, "Tree Left" },
+                { 0x4C8, "Tree Middle" },
+                { 0x4D4, "Tree Right" },
+                { 0x4E0, "Beach 1" },
+            };
+
+            foreach (var kvp in mappings.OrderBy(z => z.Key)) {
+                int target = ResearchEngine.GetRelocationPatchTarget(cro, kvp.Key);
+                if (target != -1)
+                    sb.AppendLine($"[0x{kvp.Key:X3}] {kvp.Value,-25} -> 0x{target:X}");
+                else
+                    sb.AppendLine($"[0x{kvp.Key:X3}] {kvp.Value,-25} -> NOT FOUND");
+            }
+
+            rtbAssembly.Clear();
+            rtbAssembly.SelectionColor = Color.LightSkyBlue;
+            rtbAssembly.AppendText(sb.ToString());
+            tcWorkbench.SelectedTab = Tab_ARM;
+            LogDeployment("Shop RPT dump completed.");
         }
 
         private void ExecuteDynamicDump()
@@ -455,27 +499,34 @@ namespace pk3DS.WinForms
                 // --- Legacy single-file mode (existing behaviour) ---
                 string target = "Battle.cro";
                 var meta = XlsxResearchParser.ReadSheet(path, "Table Locations and Sizes");
-                if (meta.Count > 0 && meta.Any(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase))))
+                if (path.ToLower().Contains("shop") || (actualXlsxSourcePath != null && actualXlsxSourcePath.ToLower().Contains("shop")))
                 {
-                    var row = meta.First(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase)));
-                    var fileKey = row.Keys.First(k => k.Equals("File", StringComparison.OrdinalIgnoreCase));
-                    target = row[fileKey];
+                    target = "Shop.cro";
                 }
-                else if (path.ToLower().Contains("code") || (actualXlsxSourcePath != null && actualXlsxSourcePath.ToLower().Contains("code")))
+                else
                 {
-                    target = "code.bin";
+                    if (meta.Count > 0 && meta.Any(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase))))
+                    {
+                        var row = meta.First(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase)));
+                        var fileKey = row.Keys.First(k => k.Equals("File", StringComparison.OrdinalIgnoreCase));
+                        target = row[fileKey];
+                    }
                 }
-                else if (path.ToLower().Contains("shop"))
+                
+                if (target == "Battle.cro") // Fallback checks if not already determined
                 {
-                    target = "shop.cro";
-                }
-                else if (path.ToLower().Contains("field"))
-                {
-                    target = "Field.cro";
-                }
-                else if (path.ToLower().Contains("bag"))
-                {
-                    target = "Bag.cro";
+                    if (path.ToLower().Contains("code") || (actualXlsxSourcePath != null && actualXlsxSourcePath.ToLower().Contains("code")))
+                    {
+                        target = "code.bin";
+                    }
+                    else if (path.ToLower().Contains("field"))
+                    {
+                        target = "Field.cro";
+                    }
+                    else if (path.ToLower().Contains("bag"))
+                    {
+                        target = "Bag.cro";
+                    }
                 }
                 else
                 {

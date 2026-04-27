@@ -53,6 +53,7 @@ public partial class LevelUpEditor7 : Form
         Shown += (sender, e) => {
             if (StartSpecies >= 0)
                 CB_Species.SelectedValue = StartSpecies;
+            UpdateCounters(null, null);
         };
     }
 
@@ -198,7 +199,7 @@ private int PromptFormMapping(string formName)
             dgv.Rows.Add(lv, movelist[move]);
         }
         L_TotalMoves.Text = $"Total Moves: {pkm.Moves.Length}";
-
+        UpdateCounters(null, null);
         dgv.CancelEdit();
     }
 
@@ -422,13 +423,13 @@ private int PromptFormMapping(string formName)
 
     private void UpdateCounters(object sender, EventArgs e)
     {
-        if (entry < 1 || pkm == null) return;
+        if (entry < 0 || pkm == null) return;
         int moveCount = 0;
         int stabCount = 0;
         var pkmTypes = Main.SpeciesStat[entry].Types;
         var moveData = Main.Config.Moves;
 
-        for (int i = 0; i < dgv.Rows.Count - 1; i++)
+        for (int i = 0; i < dgv.Rows.Count; i++)
         {
             var cellVal = dgv.Rows[i].Cells[1].Value;
             if (cellVal == null) continue;

@@ -54,6 +54,7 @@ public partial class TMEditor7 : Form
                 + "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                 + "• TM01–TM107: Uses standard/HM slots.\n"
                 + "• TM108+: Automatically mapped to Item ID " + expandedTMStartID + ".\n\n"
+                + "(If it says ID 328, it is just a placeholder. It means you haven't expanded anything yet!)\n\n"
                 + "The editor has automatically detected your custom Item ID range from code.bin.";
             WinFormsUtil.Alert(msg);
         }

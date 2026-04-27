@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using pk3DS.Core.Modding;
 
 namespace pk3DS.WinForms;
 
@@ -16,6 +17,7 @@ public partial class MartEditor7UU : Form
     private byte[] len_BPItem;
 
     private int ofs_Counts = -1;
+    private int ofs_CountsBP = -1;
     private int ofs_Items = -1;
     private int ofs_BP = -1;
     private int ofs_Tutors = -1;
@@ -43,14 +45,14 @@ public partial class MartEditor7UU : Form
         LoadOffsets();
 
         // Safety: Ensure counts are loaded AFTER we are sure about ofs_Counts
-        if (ofs_Counts > 0 && ofs_Counts < data.Length - 40)
+        if (ofs_Counts > 0 && ofs_CountsBP > 0)
         {
-            len_BPItem = data.Skip(ofs_Counts + 4).Take(7).ToArray();
-            len_Items = data.Skip(ofs_Counts + 11).Take(28).ToArray();
+            len_BPItem = data.Skip(ofs_CountsBP).Take(10).ToArray();
+            len_Items = data.Skip(ofs_Counts).Take(28).ToArray();
         }
         else
         {
-            len_BPItem = new byte[7];
+            len_BPItem = new byte[10];
             len_Items = new byte[28];
         }
 
@@ -61,18 +63,45 @@ public partial class MartEditor7UU : Form
         CB_Location.SelectedIndex =
             CB_LocationBPItem.SelectedIndex = 0;
 
-        B_Add.Enabled = B_Del.Enabled = false;
+        B_Add.Enabled = B_Del.Enabled = B_AddBP.Enabled = B_DelBP.Enabled = true;
     }
 
     private void LoadOffsets()
     {
-        if (File.Exists(path_Counts)) int.TryParse(File.ReadAllText(path_Counts), out ofs_Counts);
-        if (File.Exists(path_Items)) int.TryParse(File.ReadAllText(path_Items), out ofs_Items);
-        if (File.Exists(path_BP)) int.TryParse(File.ReadAllText(path_BP), out ofs_BP);
-        if (File.Exists(path_Tutors)) int.TryParse(File.ReadAllText(path_Tutors), out ofs_Tutors);
+        // Try RPT first (Full Compatibility Mode)
+        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C); // Tutor base
+        if (rpt_sizeBase != -1)
+        {
+            ofs_CountsBP = rpt_sizeBase + 4; // BP starts at index 4
+            ofs_Counts = rpt_sizeBase + 11;  // Mart starts at index 11
+            Text = "Mart Editor (RPT Mode)";
 
-        bool scanNeeded = ofs_Counts <= 0 || ofs_Items <= 0 || ofs_BP <= 0 || ofs_Tutors <= 0;
-        if (scanNeeded) ScanForSignatures();
+            byte[] bpCounts = data.Skip(rpt_sizeBase + 4).Take(7).ToArray();
+            len_BPItem = new byte[10];
+            len_BPItem[0] = bpCounts[1]; // Royale Middle (index 5)
+            len_BPItem[1] = bpCounts[0]; // Royale Left (index 4)
+            len_BPItem[2] = bpCounts[2]; // Royale Right (index 6)
+            len_BPItem[3] = bpCounts[4]; // Tree Middle (index 8)
+            len_BPItem[4] = bpCounts[3]; // Tree Left (index 7)
+            len_BPItem[5] = bpCounts[5]; // Tree Right (index 9)
+            len_BPItem[6] = 4; // Medicine
+            len_BPItem[7] = 3; // Items
+            len_BPItem[8] = 3; // Held Items
+            len_BPItem[9] = 3; // EV Training
+            
+            len_Items = data.Skip(ofs_Counts).Take(28).ToArray();
+        }
+        else
+        {
+            if (File.Exists(path_Counts)) int.TryParse(File.ReadAllText(path_Counts), out ofs_Counts);
+            if (File.Exists(path_Items)) int.TryParse(File.ReadAllText(path_Items), out ofs_Items);
+            if (File.Exists(path_BP)) int.TryParse(File.ReadAllText(path_BP), out ofs_BP);
+            if (File.Exists(path_Tutors)) int.TryParse(File.ReadAllText(path_Tutors), out ofs_Tutors);
+
+            bool scanNeeded = ofs_Counts <= 0 || ofs_Items <= 0 || ofs_BP <= 0 || ofs_Tutors <= 0;
+            if (scanNeeded) ScanForSignatures();
+            Text = "Mart Editor (Legacy Mode)";
+        }
     }
 
     private void ScanForSignatures()
@@ -80,34 +109,21 @@ public partial class MartEditor7UU : Form
         // Immutable Tutor counts are the safest anchor: [15, 17, 17, 15]
         byte[] sig_counts = [0x0F, 0x11, 0x11, 0x0F];
         int idx_c = Util.IndexOfBytes(data, sig_counts, 0, data.Length - sig_counts.Length);
-        if (idx_c >= 0) ofs_Counts = idx_c; else ofs_Counts = 0x52D2;
-
-        // Mart items pattern: Poke Ball (0x04), Great Ball (0x03), Ultra Ball (0x02)
-        byte[] sig_items = [0x04, 0x00, 0x03, 0x00, 0x02, 0x00, 0x05, 0x00];
-        int idx_i = Util.IndexOfBytes(data, sig_items, 0, data.Length - sig_items.Length);
-        if (idx_i >= 0) ofs_Items = idx_i; else ofs_Items = 0x50BC;
-
-        // BP items pattern: Rare Candy (0x32) at Battle Royal Dome
-        byte[] sig_bp = [0x32, 0x00, 0x30, 0x00, 0x21, 0x01, 0x10, 0x00];
-        int idx_b = Util.IndexOfBytes(data, sig_bp, 0, data.Length - sig_bp.Length);
-        if (idx_b >= 0) ofs_BP = idx_b; else ofs_BP = 0x5412;
-
-        // Tutor data pattern: Bind (0x0182)
-        byte[] sig_t = [0x82, 0x01, 0x04, 0x00, 0xAC, 0x01, 0x0C, 0x00];
-        int idx_t = Util.IndexOfBytes(data, sig_t, 0, data.Length - sig_t.Length);
-        if (idx_t >= 0) ofs_Tutors = idx_t; else ofs_Tutors = 0x54DE;
-
-        // Dynamic Pointer Hunting
-        // Search for the Item Pointer Table by looking for the current offset of the first Mart
-        byte[] pI = BitConverter.GetBytes((uint)ofs_Items);
-        ptr_Items = Util.IndexOfBytes(data, pI, 0, data.Length - 4);
-
-        byte[] pB = BitConverter.GetBytes((uint)ofs_BP);
-        ptr_BP = Util.IndexOfBytes(data, pB, 0, data.Length - 4);
-
-        // Pointer to the count table (anchor to Tutors)
-        byte[] pC = BitConverter.GetBytes((uint)ofs_Counts);
-        ptr_Counts = Util.IndexOfBytes(data, pC, 0, data.Length - 4);
+        // counts starts at idx_c - 28, bp starts at idx_c - 38
+        if (idx_c >= 0)
+        {
+            ofs_Tutors = idx_c;
+            ofs_Counts = idx_c - 28;
+            ofs_CountsBP = idx_c - 38;
+        }
+        else
+        {
+            ofs_Counts = 0x52D2 - 28;
+            ofs_CountsBP = 0x52D2 - 38;
+        }
+        ofs_Items = 0x50BC;
+        ofs_BP = 0x5412;
+        ofs_Tutors = 0x54DE;
 
         SaveOffsets();
     }
@@ -140,19 +156,21 @@ public partial class MartEditor7UU : Form
             for (int i = 0; i < 28; i++) // Mart Item Pointers
             {
                 int pOfs = ptr_Items + i * 4;
+                if (pOfs + 4 > data.Length) break;
                 uint val = BitConverter.ToUInt32(data, pOfs);
                 if (val >= (uint)insertionPoint) 
-                    Array.Copy(BitConverter.GetBytes(val + change), 0, data, pOfs, 4);
+                    Array.Copy(BitConverter.GetBytes(val + (uint)change), 0, data, pOfs, 4);
             }
         }
         if (ptr_BP >= 0)
         {
-            for (int i = 0; i < 7; i++) // BP Item Pointers
+            for (int i = 0; i < 10; i++) // BP Item Pointers
             {
                 int pOfs = ptr_BP + i * 4;
+                if (pOfs + 4 > data.Length) break;
                 uint val = BitConverter.ToUInt32(data, pOfs);
                 if (val >= (uint)insertionPoint) 
-                    Array.Copy(BitConverter.GetBytes(val + change), 0, data, pOfs, 4);
+                    Array.Copy(BitConverter.GetBytes(val + (uint)change), 0, data, pOfs, 4);
             }
         }
         if (ptr_Counts >= 0)
@@ -202,7 +220,10 @@ public partial class MartEditor7UU : Form
         "Battle Tree [Trade Evolution Items]",
         "Battle Tree [Held Items]",
         "Battle Tree [Mega Stones]",
-        "Beaches [Medicine]",
+        "Big Wave Beach",
+        "Heahea Beach",
+        "Ula'ula Beach",
+        "Poni Beach",
     ];
     #endregion
 
@@ -242,6 +263,68 @@ public partial class MartEditor7UU : Form
         if (entryBPItem >= 0) GetListBPItem();
     }
 
+    private static readonly uint[] MartPatchAddrs = {
+        0x594, 0x5A0, 0x5AC, 0x5B8, 0x5C4, 0x5D0, 0x5DC, 0x5E8, // Trials 0-7 (Indices 0-7)
+        0x5F4, // Konikoni Incense (8)
+        0x450, // Konikoni Herb (9)
+        0x42C, // Hau'oli X Items (10)
+        0x438, // Route 2 Misc (11)
+        0x4F8, // Heahea TM (12)
+        0x444, // Royal Avenue TMs (13)
+        0x45C, // Route 8 (14)
+        0x474, // Paniola Town (15)
+        0x48C, // Malie City [TMs] (16)
+        0x3F0, // Mount Hokulani (17)
+        0x4BC, // Seafolk Village [TMs] (18)
+        0x4E0, // Konikoni City [TMs] (19)
+        0x3FC, // Konikoni City [Stones] (20)
+        0x408, // Thrifty Megamart, Left (21)
+        0x414, // Thrifty Megamart, Middle (22)
+        0x420, // Thrifty Megamart, Right (23)
+        0x480, // Route 3 [X Items] (24)
+        0x468, // Konikoni City [X Items] (25)
+        0x498, // Tapu Village [X Items] (26)
+        0x4A4, // Mount Lanakila [X Items] (27)
+    };
+
+    private static readonly uint[] BPPatchAddrs = {
+        0x510, // Royale Middle (0)
+        0x504, // Royale Left (1)
+        0x51C, // Royale Right (2)
+        0x534, // Tree Middle (3)
+        0x528, // Tree Left (4)
+        0x540, // Tree Right (5)
+        0x54C, // Beach (Unified) (6)
+    };
+
+    private int GetShopOffset(int shopIdx, bool isBP)
+    {
+        if (isBP)
+        {
+            int rptIdx = Math.Min(shopIdx, 6);
+            int rptOfs = ResearchEngine.GetRelocationPatchTarget(data, BPPatchAddrs[rptIdx]);
+            if (rptOfs == -1) return -1;
+
+            // Handle Beach sub-sections (Medicine=6, Items=7, Held=8, EV=9)
+            // The unified Beach table starts with items (13 total).
+            if (shopIdx == 6) return rptOfs + 0;
+            if (shopIdx == 7) return rptOfs + (4 * 4);
+            if (shopIdx == 8) return rptOfs + (7 * 4);
+            if (shopIdx == 9) return rptOfs + (10 * 4);
+            return rptOfs;
+        }
+        else
+        {
+            if (shopIdx < MartPatchAddrs.Length)
+            {
+                int rptOfs = ResearchEngine.GetRelocationPatchTarget(data, MartPatchAddrs[shopIdx]);
+                if (rptOfs != -1) return rptOfs;
+            }
+            // Fallback: Legacy offset calculation
+            return ofs_Items + (len_Items.Take(shopIdx).Sum(z => z) * 2);
+        }
+    }
+
     private void GetListItem()
     {
         try
@@ -251,32 +334,27 @@ public partial class MartEditor7UU : Form
 
             dgv.Rows.Clear();
             int count = len_Items[entryItem];
-            if (count > 100) count = 100; // Sanity check to prevent UI hang/crash
+            if (count > 200) count = 200;
             
-            dgv.Rows.Add(count);
-            var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
+            if (count > 0)
+                dgv.Rows.Add(count);
+            int ofs = GetShopOffset(entryItem, false);
+            if (ofs == -1) return;
+
             for (int i = 0; i < count; i++)
             {
                 if (ofs + (2 * i) + 1 >= data.Length) break;
                 ushort itemID = BitConverter.ToUInt16(data, ofs + (2 * i));
                 
                 dgv.Rows[i].Cells[0].Value = i.ToString();
-                string val;
-                if (itemID < itemlist.Length)
-                    val = itemlist[itemID];
-                else
-                    val = $"(Unknown: {itemID})";
+                string val = (itemID < itemlist.Length) ? itemlist[itemID] : $"(Unknown: {itemID})";
 
                 var cell = (DataGridViewComboBoxCell)dgv.Rows[i].Cells[1];
-                if (!cell.Items.Contains(val))
-                    cell.Items.Add(val);
+                if (!cell.Items.Contains(val)) cell.Items.Add(val);
                 cell.Value = val;
             }
         }
-        catch (Exception ex)
-        {
-            WinFormsUtil.Error("Crash in GetListItem", $"entryItem: {entryItem}", $"len_Items: {len_Items?.Length}", ex.ToString());
-        }
+        catch (Exception ex) { WinFormsUtil.Error("Crash in GetListItem", ex.ToString()); }
     }
 
     private void GetListBPItem()
@@ -290,55 +368,117 @@ public partial class MartEditor7UU : Form
             int count = len_BPItem[entryBPItem];
             if (count > 100) count = 100;
 
-            dgvbp.Rows.Add(count);
-            var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
+            if (count > 0)
+                dgvbp.Rows.Add(count);
+            int ofs = GetShopOffset(entryBPItem, true);
+            if (ofs == -1) return;
+
+            bool isBeach = entryBPItem >= 6;
+            int entrySize = isBeach ? 8 : 4;
             for (int i = 0; i < count; i++)
             {
-                if (ofs + (4 * i) + 3 >= data.Length) break;
-                ushort itemID = BitConverter.ToUInt16(data, ofs + (4 * i));
-                ushort price = BitConverter.ToUInt16(data, ofs + (4 * i) + 2);
+                int m_ofs = ofs + (entrySize * i);
+                if (m_ofs + entrySize > data.Length) break;
 
+                int p_ofs = m_ofs + (isBeach ? 4 : 2);
+                ushort itemID = BitConverter.ToUInt16(data, m_ofs);
+                
                 dgvbp.Rows[i].Cells[0].Value = i.ToString();
-                string val;
-                if (itemID < itemlist.Length)
-                    val = itemlist[itemID];
-                else
-                    val = $"(Unknown: {itemID})";
+                string val = (itemID < itemlist.Length) ? itemlist[itemID] : $"(Unknown: {itemID})";
 
                 var cell = (DataGridViewComboBoxCell)dgvbp.Rows[i].Cells[1];
-                if (!cell.Items.Contains(val))
-                    cell.Items.Add(val);
+                if (!cell.Items.Contains(val)) cell.Items.Add(val);
                 cell.Value = val;
 
-                dgvbp.Rows[i].Cells[2].Value = price.ToString();
+                if (isBeach)
+                    dgvbp.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, p_ofs).ToString();
+                else
+                    dgvbp.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, p_ofs).ToString();
             }
         }
-        catch (Exception ex)
-        {
-            WinFormsUtil.Error("Crash in GetListBPItem", $"entryBPItem: {entryBPItem}", $"len_BPItem: {len_BPItem?.Length}", ex.ToString());
-        }
+        catch (Exception ex) { WinFormsUtil.Error("Crash in GetListBPItem", ex.ToString()); }
     }
 
     private void SetListItem()
     {
         int count = dgv.Rows.Count;
-        var ofs = ofs_Items + (len_Items.Take(entryItem).Sum(z => z) * 2);
+        int shopOfs = GetShopOffset(entryItem, false);
+        if (shopOfs == -1) return;
+
+        if (len_Items == null || entryItem < 0 || entryItem >= len_Items.Length) return;
+        if (count > len_Items[entryItem])
+        {
+            // Expansion!
+            int newSize = count * 2;
+            int newOfs = data.Length;
+            data = CROUtil.ExpandSegment(data, 'd', newSize);
+            
+            if (entryItem < MartPatchAddrs.Length)
+                ResearchEngine.RepointRelocationByOffset(data, MartPatchAddrs[entryItem], (uint)newOfs);
+            
+            shopOfs = newOfs;
+        }
+
         for (int i = 0; i < count; i++)
-            Array.Copy(BitConverter.GetBytes((ushort)Array.IndexOf(itemlist, dgv.Rows[i].Cells[1].Value)), 0, data, ofs + (2 * i), 2);
+        {
+            int item = Array.IndexOf(itemlist, dgv.Rows[i].Cells[1].Value);
+            int m_ofs = shopOfs + (2 * i);
+            if (m_ofs + 2 > data.Length) break;
+            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, m_ofs, 2);
+        }
+        
+        data[ofs_Counts + entryItem] = (byte)count;
+        len_Items[entryItem] = (byte)count;
     }
 
     private void SetListBPItem()
     {
         int count = dgvbp.Rows.Count;
-        var ofs = ofs_BP + (len_BPItem.Take(entryBPItem).Sum(z => z) * 4);
+        int shopOfs = GetShopOffset(entryBPItem, true);
+        if (shopOfs == -1) return;
+
+        bool isBeach = entryBPItem >= 6;
+        int entrySize = isBeach ? 8 : 4;
+
+        if (len_BPItem == null || entryBPItem < 0 || entryBPItem >= len_BPItem.Length) return;
+        if (count > len_BPItem[entryBPItem])
+        {
+            // Expansion!
+            int newSize = count * entrySize;
+            int newOfs = data.Length;
+            data = CROUtil.ExpandSegment(data, 'd', newSize);
+            
+            if (entryBPItem < BPPatchAddrs.Length)
+                ResearchEngine.RepointRelocationByOffset(data, BPPatchAddrs[entryBPItem], (uint)newOfs);
+            
+            shopOfs = newOfs;
+        }
+
         for (int i = 0; i < count; i++)
         {
             int item = Array.IndexOf(itemlist, dgvbp.Rows[i].Cells[1].Value);
-            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, ofs + (4 * i), 2);
-            string p = dgvbp.Rows[i].Cells[2].Value.ToString();
-            if (int.TryParse(p, out var price))
-                Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, ofs + (4 * i) + 2, 2);
+            uint price = 4; uint.TryParse(dgvbp.Rows[i].Cells[2].Value.ToString(), out price);
+
+            int m_ofs = shopOfs + (entrySize * i);
+            int p_ofs = m_ofs + (isBeach ? 4 : 2);
+            if (p_ofs + (isBeach ? 4 : 2) > data.Length) break;
+
+            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, m_ofs, 2);
+            Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, p_ofs, 2);
         }
+        
+        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
+        int[] bpMap = { 1, 0, 2, 4, 3, 5, 6 };
+        if (entryBPItem < 6)
+        {
+            data[rpt_sizeBase + 3 + bpMap[entryBPItem]] = (byte)count;
+        }
+        else
+        {
+            // Update the unified beach count (Index 10)
+            data[rpt_sizeBase + 4 + 6] = (byte)(len_BPItem[6] + len_BPItem[7] + len_BPItem[8] + len_BPItem[9]);
+        }
+        len_BPItem[entryBPItem] = (byte)count;
     }
 
     private void B_Randomize_Click(object sender, EventArgs e)
@@ -424,71 +564,29 @@ public partial class MartEditor7UU : Form
 
     private void B_Add_Click(object sender, EventArgs e)
     {
-        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with shop expansion in USUM.");
-        return;
-        /*
         bool isBP = tabControl1.SelectedIndex == 1;
-        int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
-        if (entry < 0) return;
-
-        if (isBP) SetListBPItem(); else SetListItem();
-
-        int itemSize = isBP ? 4 : 2;
-        int baseOfs = isBP ? ofs_BP : ofs_Items;
-        byte[] counts = isBP ? len_BPItem : len_Items;
-        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 4 + 7);
-
-        int insertionPoint = baseOfs + (counts.Take(entry + 1).Sum(z => z) * itemSize);
-        data = CROUtil.ExpandSegment(data, 'd', itemSize, insertionPoint);
-
-        // Update counts in the binary
-        counts[entry]++;
-        
-        // Recalculate stale count table offset after expansion
-        if (countOfs >= insertionPoint) countOfs += itemSize;
-        data[countOfs + entry] = counts[entry];
-
-        // Recalculate global offsets after expansion!
-        UpdateOffsets(insertionPoint, itemSize);
-
-        // Sync and refresh
-        if (isBP) { entryBPItem = entry; GetListBPItem(); } else { entryItem = entry; GetListItem(); }
-        WinFormsUtil.Alert("Item slot added. Data shifted.");
-        */
+        if (isBP)
+        {
+            dgvbp.Rows.Add(1);
+            int idx = dgvbp.Rows.Count - 1;
+            dgvbp.Rows[idx].Cells[0].Value = idx.ToString();
+            dgvbp.Rows[idx].Cells[1].Value = itemlist[1];
+            dgvbp.Rows[idx].Cells[2].Value = "1";
+        }
+        else
+        {
+            dgv.Rows.Add(1);
+            int idx = dgv.Rows.Count - 1;
+            dgv.Rows[idx].Cells[0].Value = idx.ToString();
+            dgv.Rows[idx].Cells[1].Value = itemlist[1];
+        }
     }
 
     private void B_Del_Click(object sender, EventArgs e)
     {
-        WinFormsUtil.Alert("Add/Delete functionality is temporarily disabled due to unresolved stability issues with shop expansion in USUM.");
-        return;
-        /*
         bool isBP = tabControl1.SelectedIndex == 1;
-        int entry = isBP ? CB_LocationBPItem.SelectedIndex : CB_Location.SelectedIndex;
-        if (entry < 0) return;
-
-        byte[] counts = isBP ? len_BPItem : len_Items;
-        if (counts[entry] <= 1)
-        {
-            WinFormsUtil.Alert("Cannot delete last item.");
-            return;
-        }
-
-        int itemSize = isBP ? 4 : 2;
-        int baseOfs = isBP ? ofs_BP : ofs_Items;
-        int countOfs = isBP ? (ofs_Counts + 4) : (ofs_Counts + 11);
-        int deletionPoint = baseOfs + ((counts.Take(entry + 1).Sum(z => z) - 1) * itemSize);
-
-        data = CROUtil.ExpandSegment(data, 'd', -itemSize, deletionPoint);
-        counts[entry]--;
-        
-        if (countOfs >= deletionPoint) countOfs -= itemSize;
-        data[countOfs + entry] = counts[entry];
-
-        UpdateOffsets(deletionPoint, -itemSize);
-
-        if (isBP) { entryBPItem = entry; GetListBPItem(); } else { entryItem = entry; GetListItem(); }
-        WinFormsUtil.Alert("Item slot deleted. Data shifted.");
-        */
+        if (isBP && dgvbp.Rows.Count > 0) dgvbp.Rows.RemoveAt(dgvbp.Rows.Count - 1);
+        else if (!isBP && dgv.Rows.Count > 0) dgv.Rows.RemoveAt(dgv.Rows.Count - 1);
     }
 
     private void SyncMartsToCodeBin()
@@ -498,15 +596,16 @@ public partial class MartEditor7UU : Form
         if (!File.Exists(codePath)) return;
 
         byte[] codeBin = File.ReadAllBytes(codePath);
+        
+        // 1. Sync Standard Mart Counts
         if (File.Exists(codeOfsFile))
             int.TryParse(File.ReadAllText(codeOfsFile), out cachedCodeOfs);
 
         if (cachedCodeOfs <= 0)
         {
-            // Search for the 2-byte spaced trial count pattern for USUM: [12, 0, 12, 0, 12, 0, 12, 0]
-            // These correspond to the first 4 shops which all have 12 items by default in USUM.
-            byte[] pat = [0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00, 0x0C, 0x00];
-            int idx = Util.IndexOfBytes(codeBin, pat, 0, codeBin.Length - pat.Length);
+            // Verified USUM Trial Mart Counts: 9, 12, 14, 16, 18, 20, 22, 24
+            byte[] pat = [0x09, 0x00, 0x0C, 0x00, 0x0E, 0x00, 0x10, 0x00, 0x12, 0x00, 0x14, 0x00, 0x16, 0x00, 0x18, 0x00];
+            int idx = Util.IndexOfBytes(codeBin, pat, 0x100000, 0);
             if (idx >= 0)
             {
                 cachedCodeOfs = idx;
@@ -517,34 +616,96 @@ public partial class MartEditor7UU : Form
         if (cachedCodeOfs > 0)
         {
             for (int i = 0; i < len_Items.Length; i++)
-                codeBin[cachedCodeOfs + i * 2] = len_Items[i];
+            {
+                int dest = cachedCodeOfs + i * 2;
+                if (dest + 1 < codeBin.Length)
+                {
+                    codeBin[dest] = len_Items[i];
+                    codeBin[dest + 1] = 0;
+                }
+            }
         }
 
-        // NEW: Multi-file offset synchronization
-        SyncExecutablePointers(codeBin);
-            
+        // 2. Sync BP Shop Counts
+        byte[] patBP = [0x08, 0x00, 0x07, 0x00, 0x12, 0x00, 0x0C, 0x00, 0x15, 0x00, 0x10, 0x00];
+        int bpOfs = Util.IndexOfBytes(codeBin, patBP, 0x100000, 0);
+        if (bpOfs >= 0)
+        {
+            // The code.bin table usually has 7 entries for BP shops (Royale x3, Tree x3, Beach)
+            for (int i = 0; i < 7; i++)
+            {
+                int dest = bpOfs + i * 2;
+                if (dest + 1 < codeBin.Length && i < len_BPItem.Length)
+                {
+                    codeBin[dest] = len_BPItem[i];
+                    codeBin[dest + 1] = 0;
+                }
+            }
+        }
+
         File.WriteAllBytes(codePath, codeBin);
     }
 
-    private void SyncExecutablePointers(byte[] codeBin)
+private void SyncExecutablePointers(byte[] codeBin)
     {
         // Define the mapping of Vanilla -> Current offsets
         // Vanilla USUM: Items=0x50BC, Counts=0x52D2, BP=0x5412, Tutor=0x54DE
-        Dictionary<uint, uint> map = new Dictionary<uint, uint>
-        {
-            { 0x50BC, (uint)ofs_Items },
-            { 0x52D2, (uint)ofs_Counts },
-            { 0x5412, (uint)ofs_BP },
-            { 0x54DE, (uint)ofs_Tutors }
-        };
+        Dictionary<uint, uint> map = new Dictionary<uint, uint>();
+        
+        // Only repoint if the table has actually been moved
+        if (ofs_Items > 0 && ofs_Items != 0x50BC) map.Add(0x50BC, (uint)ofs_Items);
+        if (ofs_Counts > 0 && ofs_Counts != 0x52D2) map.Add(0x52D2, (uint)ofs_Counts);
+        if (ofs_BP > 0 && ofs_BP != 0x5412) map.Add(0x5412, (uint)ofs_BP);
+        if (ofs_Tutors > 0 && ofs_Tutors != 0x54DE) map.Add(0x54DE, (uint)ofs_Tutors);
+
+        if (map.Count == 0) return;
+
+        int repointCount = 0;
 
         for (int i = 0; i < codeBin.Length - 4; i += 4)
         {
             uint val = BitConverter.ToUInt32(codeBin, i);
-            if (map.TryGetValue(val, out uint newVal) && val != newVal)
+            if (map.ContainsKey(val))
             {
-                Array.Copy(BitConverter.GetBytes(newVal), 0, codeBin, i, 4);
+                // Strict Verification: Ensure this is a real pointer referenced by an LDR instruction
+                if (VerifyLiteralPoolReference(codeBin, i))
+                {
+                    Array.Copy(BitConverter.GetBytes(map[val]), 0, codeBin, i, 4);
+                    repointCount++;
+                }
             }
         }
+        
+        if (repointCount > 0)
+            Console.WriteLine($"Successfully repointed {repointCount} table references safely.");
+    }
+
+    private bool VerifyLiteralPoolReference(byte[] codeBin, int poolOffset)
+    {
+        // Search up to 1024 bytes backwards for the instruction that calls this literal pool address
+        int searchStart = Math.Max(0, poolOffset - 1024);
+        
+        for (int i = poolOffset - 4; i >= searchStart; i -= 4)
+        {
+            uint instr = BitConverter.ToUInt32(codeBin, i);
+            
+            // ARM Heuristic: LDR Rd, [PC, #imm12] (Positive Offset) -> E59Fxxxx
+            if ((instr & 0x0FFF0000) == 0x059F0000) 
+            {
+                uint imm = instr & 0xFFF;
+                uint pc = (uint)i + 8; // In ARM32, PC is always ahead by 8 bytes
+                if (pc + imm == (uint)poolOffset) return true;
+            }
+            // ARM Heuristic: LDR Rd, [PC, #-imm12] (Negative Offset) -> E51Fxxxx
+            else if ((instr & 0x0FFF0000) == 0x051F0000)
+            {
+                uint imm = instr & 0xFFF;
+                uint pc = (uint)i + 8;
+                if (pc - imm == (uint)poolOffset) return true;
+            }
+        }
+        
+        // If no LDR instruction directly mathematically references this offset, it's a coincidence. Ignore it.
+        return false;
     }
 }

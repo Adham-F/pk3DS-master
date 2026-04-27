@@ -123,6 +123,7 @@ public partial class MoveEditor7 : Form
             Array.Resize(ref moveflavor, movelist.Length);
             for (int i = moveflavor.Length - 1; i >= 0 && moveflavor[i] == null; i--) moveflavor[i] = "";
         }
+        LoadFlagNames();
         RefreshFlagNames();
         LoadLogs();
     }
@@ -137,6 +138,30 @@ public partial class MoveEditor7 : Form
             var logs = JsonSerializer.Deserialize<Dictionary<int, List<string>>>(json);
             if (logs != null) _changeLogs = logs;
             UpdateLogView();
+        }
+        catch { }
+    }
+
+    private void LoadFlagNames()
+    {
+        try
+        {
+            string path = Path.Combine(Path.GetDirectoryName(Main.RomFSPath) ?? "", FlagsPath);
+            if (!File.Exists(path)) return;
+            var json = File.ReadAllText(path);
+            var names = JsonSerializer.Deserialize<Dictionary<int, string>>(json);
+            if (names != null) customFlagNames = names;
+        }
+        catch { }
+    }
+
+    private void SaveFlagNames()
+    {
+        try
+        {
+            string path = Path.Combine(Path.GetDirectoryName(Main.RomFSPath) ?? "", FlagsPath);
+            var json = JsonSerializer.Serialize(customFlagNames, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
         }
         catch { }
     }
@@ -481,7 +506,7 @@ public partial class MoveEditor7 : Form
             NUD_Priority.Value = (sbyte)move.Priority;
             NUD_HitMin.Value = move.HitMin;
             NUD_HitMax.Value = move.HitMax;
-            NUD_Inflict.Value = move.Inflict;
+            NUD_Inflict.Value = move.InflictPercent;
             NUD_0xB.Value = (byte)move.InflictCount;
             NUD_TurnMin.Value = move.TurnMin;
             NUD_TurnMax.Value = move.TurnMax;
@@ -554,6 +579,7 @@ public partial class MoveEditor7 : Form
                 HitMin = (int)NUD_HitMin.Value,
                 HitMax = (int)NUD_HitMax.Value,
                 Inflict = CB_Inflict.SelectedIndex,
+                InflictPercent = (int)NUD_Inflict.Value,
                 InflictCount = (MoveInflictDuration)NUD_0xB.Value,
                 TurnMin = (int)NUD_TurnMin.Value,
                 TurnMax = (int)NUD_TurnMax.Value,
@@ -606,6 +632,7 @@ public partial class MoveEditor7 : Form
         try { SetEntry(); } catch { }
         SaveAnimationMap();
         SaveLogs();
+        SaveFlagNames();
         RandSettings.SetFormSettings(this, groupBox1.Controls);
 
         if (files != null)
@@ -970,6 +997,7 @@ public partial class MoveEditor7 : Form
         {
             customFlagNames[sel] = input;
             RefreshFlagNames();
+            SaveFlagNames();
         }
     }
 
@@ -992,6 +1020,39 @@ public partial class MoveEditor7 : Form
             sb.AppendLine();
         }
         File.WriteAllText(sfd.FileName, sb.ToString());
+    }
+// Temporary storage for the copied move data
+    private byte[] copiedMoveData = null;
+
+    private void B_CopyData_Click(object sender, EventArgs e)
+    {
+        if (entry < 1 || entry >= files.Length) return;
+
+        // 1. Force the UI to save any unsaved typing to the underlying file array
+        SetEntry();
+        
+        // 2. Clone the exact byte array for the current move into the clipboard
+        copiedMoveData = (byte[])files[entry].Clone();
+        
+        WinFormsUtil.Alert("Move data copied!");
+    }
+
+    private void B_PasteData_Click(object sender, EventArgs e)
+    {
+        if (copiedMoveData == null)
+        {
+            WinFormsUtil.Alert("No move data copied yet!");
+            return;
+        }
+        if (entry < 1 || entry >= files.Length) return;
+
+        // 1. Overwrite the current move's byte array with the copied data
+        files[entry] = (byte[])copiedMoveData.Clone();
+        
+        // 2. Force the UI to reload and display the newly pasted byte array
+        GetEntry();
+        
+        WinFormsUtil.Alert("Move data pasted!");
     }
 
     private void RTB_KeyDown(object sender, KeyEventArgs e)

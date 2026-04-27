@@ -1,4 +1,4 @@
-﻿using pk3DS.Core;
+using pk3DS.Core;
 using System;
 using System.Linq;
 using System.Windows.Forms;
@@ -78,39 +78,38 @@ public partial class MoveEditor6 : Form
         {
             RTB.Text = moveflavor[entry].Replace("\\n", Environment.NewLine);
 
-            CB_Type.SelectedIndex = data[0x00];
-            CB_Quality.SelectedIndex = data[0x01];
-            CB_Category.SelectedIndex = data[0x02];
-            NUD_Power.Value = data[0x3];
-            NUD_Accuracy.Value = data[0x4];
-            NUD_PP.Value = data[0x05];
-            NUD_Priority.Value = (sbyte)data[0x06];
-            NUD_HitMin.Value = data[0x7] & 0xF;
-            NUD_HitMax.Value = data[0x7] >> 4;
-            short inflictVal = BitConverter.ToInt16(data, 0x08);
-            CB_Inflict.SelectedIndex = inflictVal < 0 ? CB_Inflict.Items.Count - 1 : inflictVal;
-            NUD_Inflict.Value = data[0xA];
-            NUD_0xB.Value = data[0xB];
-            NUD_TurnMin.Value = data[0xC];
-            NUD_TurnMax.Value = data[0xD];
-            NUD_CritStage.Value = data[0xE];
-            NUD_Flinch.Value = data[0xF];
-            NUD_Effect.Value = BitConverter.ToUInt16(data, 0x10);
-            NUD_Recoil.Value = (sbyte)data[0x12];
-            NUD_Heal.Value = data[0x13];
-
-            CB_Targeting.SelectedIndex = data[0x14];
-            CB_Stat1.SelectedIndex = data[0x15];
-            CB_Stat2.SelectedIndex = data[0x16];
-            CB_Stat3.SelectedIndex = data[0x17];
-            NUD_Stat1.Value = (sbyte)data[0x18];
-            NUD_Stat2.Value = (sbyte)data[0x19];
-            NUD_Stat3.Value = (sbyte)data[0x1A];
-            NUD_StatP1.Value = data[0x1B];
-            NUD_StatP2.Value = data[0x1C];
-            NUD_StatP3.Value = data[0x1D];
-
             var move = new Move6(data);
+            CB_Type.SelectedIndex = move.Type;
+            CB_Quality.SelectedIndex = move.Quality;
+            CB_Category.SelectedIndex = move.Category;
+            NUD_Power.Value = move.Power;
+            NUD_Accuracy.Value = move.Accuracy;
+            NUD_PP.Value = move.PP;
+            NUD_Priority.Value = (sbyte)move.Priority;
+            NUD_HitMin.Value = move.HitMin;
+            NUD_HitMax.Value = move.HitMax;
+            CB_Inflict.SelectedIndex = Math.Min(move.Inflict, CB_Inflict.Items.Count - 1);
+            NUD_Inflict.Value = move.InflictPercent;
+            NUD_0xB.Value = (byte)move.InflictCount;
+            NUD_TurnMin.Value = move.TurnMin;
+            NUD_TurnMax.Value = move.TurnMax;
+            NUD_CritStage.Value = move.CritStage;
+            NUD_Flinch.Value = move.Flinch;
+            NUD_Effect.Value = move.EffectSequence;
+            NUD_Recoil.Value = (sbyte)move.Recoil;
+            NUD_Heal.Value = (byte)move.Healing;
+
+            CB_Targeting.SelectedIndex = (int)move.Target;
+            CB_Stat1.SelectedIndex = move.Stat1;
+            CB_Stat2.SelectedIndex = move.Stat2;
+            CB_Stat3.SelectedIndex = move.Stat3;
+            NUD_Stat1.Value = (sbyte)move.Stat1Stage;
+            NUD_Stat2.Value = (sbyte)move.Stat2Stage;
+            NUD_Stat3.Value = (sbyte)move.Stat3Stage;
+            NUD_StatP1.Value = move.Stat1Percent;
+            NUD_StatP2.Value = move.Stat2Percent;
+            NUD_StatP3.Value = move.Stat3Percent;
+
             var flags = (uint)move.Flags;
             for (int i = 0; i < CLB_Flags.Items.Count; i++)
                 CLB_Flags.SetItemChecked(i, ((flags >> i) & 1) == 1);
@@ -122,35 +121,38 @@ public partial class MoveEditor6 : Form
         if (entry < 1) return;
         byte[] data = files[entry];
         {
-            data[0x00] = (byte)CB_Type.SelectedIndex;
-            data[0x01] = (byte)CB_Quality.SelectedIndex;
-            data[0x02] = (byte)CB_Category.SelectedIndex;
-            data[0x03] = (byte)NUD_Power.Value;
-            data[0x04] = (byte)NUD_Accuracy.Value;
-            data[0x05] = (byte)NUD_PP.Value;
-            data[0x06] = (byte)(int)NUD_Priority.Value;
-            data[0x07] = (byte)((byte)NUD_HitMin.Value | ((byte)NUD_HitMax.Value << 4));
-            int inflictval = CB_Inflict.SelectedIndex; if (inflictval == CB_Inflict.Items.Count) inflictval = -1;
-            Array.Copy(BitConverter.GetBytes((short)inflictval), 0, data, 0x08, 2);
-            data[0x0A] = (byte)NUD_Inflict.Value;
-            data[0x0B] = (byte)NUD_0xB.Value;
-            data[0x0C] = (byte)NUD_TurnMin.Value;
-            data[0x0D] = (byte)NUD_TurnMax.Value;
-            data[0x0E] = (byte)NUD_CritStage.Value;
-            data[0x0F] = (byte)NUD_Flinch.Value;
-            Array.Copy(BitConverter.GetBytes((ushort)NUD_Effect.Value), 0, data, 0x10, 2);
-            data[0x12] = (byte)(int)NUD_Recoil.Value;
-            data[0x13] = (byte)NUD_Heal.Value;
-            data[0x14] = (byte)CB_Targeting.SelectedIndex;
-            data[0x15] = (byte)CB_Stat1.SelectedIndex;
-            data[0x16] = (byte)CB_Stat2.SelectedIndex;
-            data[0x17] = (byte)CB_Stat3.SelectedIndex;
-            data[0x18] = (byte)(int)NUD_Stat1.Value;
-            data[0x19] = (byte)(int)NUD_Stat2.Value;
-            data[0x1A] = (byte)(int)NUD_Stat3.Value;
-            data[0x1B] = (byte)NUD_StatP1.Value;
-            data[0x1C] = (byte)NUD_StatP2.Value;
-            data[0x1D] = (byte)NUD_StatP3.Value;
+            var move = new Move6(data)
+            {
+                Type = CB_Type.SelectedIndex,
+                Quality = CB_Quality.SelectedIndex,
+                Category = CB_Category.SelectedIndex,
+                Power = (int)NUD_Power.Value,
+                Accuracy = (int)NUD_Accuracy.Value,
+                PP = (int)NUD_PP.Value,
+                Priority = (int)NUD_Priority.Value,
+                HitMin = (int)NUD_HitMin.Value,
+                HitMax = (int)NUD_HitMax.Value,
+                Inflict = CB_Inflict.SelectedIndex,
+                InflictPercent = (int)NUD_Inflict.Value,
+                InflictCount = (MoveInflictDuration)NUD_0xB.Value,
+                TurnMin = (int)NUD_TurnMin.Value,
+                TurnMax = (int)NUD_TurnMax.Value,
+                CritStage = (int)NUD_CritStage.Value,
+                Flinch = (int)NUD_Flinch.Value,
+                EffectSequence = (int)NUD_Effect.Value,
+                Recoil = (int)NUD_Recoil.Value,
+                Healing = (Heal)NUD_Heal.Value,
+                Target = (MoveTarget)CB_Targeting.SelectedIndex,
+                Stat1 = CB_Stat1.SelectedIndex,
+                Stat2 = CB_Stat2.SelectedIndex,
+                Stat3 = CB_Stat3.SelectedIndex,
+                Stat1Stage = (int)NUD_Stat1.Value,
+                Stat2Stage = (int)NUD_Stat2.Value,
+                Stat3Stage = (int)NUD_Stat3.Value,
+                Stat1Percent = (int)NUD_StatP1.Value,
+                Stat2Percent = (int)NUD_StatP2.Value,
+                Stat3Percent = (int)NUD_StatP3.Value,
+            };
 
             uint flagval = 0;
             for (int i = 0; i < CLB_Flags.Items.Count; i++)

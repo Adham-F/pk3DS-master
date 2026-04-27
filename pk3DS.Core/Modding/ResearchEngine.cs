@@ -16,6 +16,50 @@ public static class ResearchEngine
     private static byte[] data;
     private static string currentFile;
 
+    public static int GetRelocationPatchTarget(byte[] data, uint patchRelAddr)
+    {
+        try
+        {
+            uint rptTableOffset = BitConverter.ToUInt32(data, 0x128);
+            uint entryOfs = rptTableOffset + patchRelAddr;
+            if (entryOfs + 12 > data.Length) return -1;
+
+            int targetSeg = data[entryOfs + 5];
+            uint pointedAt = BitConverter.ToUInt32(data, (int)(entryOfs + 8));
+
+            uint segmentTableOffset = BitConverter.ToUInt32(data, 0x84);
+            // The segment table at 0x84 (or 0xC8 pointer) has 12-byte entries.
+            // Segment 0 base is at +8, Segment 1 at +20, etc.
+            int baseFieldOfs = (int)segmentTableOffset + 8 + (targetSeg * 12);
+            if (baseFieldOfs + 4 > data.Length) return -1;
+
+            uint dataTableOffset = BitConverter.ToUInt32(data, baseFieldOfs);
+            return (int)(pointedAt + dataTableOffset);
+        }
+        catch { return -1; }
+    }
+
+    public static bool RepointRelocationByOffset(byte[] data, uint patchRelAddr, uint newTargetAbs)
+    {
+        try
+        {
+            uint rptTableOffset = BitConverter.ToUInt32(data, 0x128);
+            uint entryOfs = rptTableOffset + patchRelAddr;
+            if (entryOfs + 12 > data.Length) return false;
+
+            int targetSeg = data[entryOfs + 5];
+            uint segmentTableOffset = BitConverter.ToUInt32(data, 0x84);
+            int baseFieldOfs = (int)segmentTableOffset + 8 + (targetSeg * 12);
+            if (baseFieldOfs + 4 > data.Length) return false;
+
+            uint dataTableOffset = BitConverter.ToUInt32(data, baseFieldOfs);
+            uint newPointedAt = newTargetAbs - dataTableOffset;
+            BitConverter.GetBytes(newPointedAt).CopyTo(data, (int)(entryOfs + 8));
+            return true;
+        }
+        catch { return false; }
+    }
+
     public static bool ApplyCodePatch(string codePath, long offset, byte[] patch)
     {
         if (!File.Exists(codePath)) return false;
