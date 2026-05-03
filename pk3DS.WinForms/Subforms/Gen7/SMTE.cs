@@ -202,21 +202,45 @@ public partial class SMTE : Form
     private void ClickSlot(object sender, MouseEventArgs e)
     {
         int slot = GetSlot(sender); if (slot == -1) return;
-        if (e.Button == MouseButtons.Right)
+        if (e.Button == MouseButtons.Left)
         {
-            if (slot < Trainers[index].NumPokemon)
+            if (currentSlot == slot)
             {
-                Trainers[index].Pokemon.RemoveAt(slot); Trainers[index].NumPokemon = (int)--NUD_NumPoke.Value;
-                PopulateTeam(Trainers[index]); GetSlotColor(slot, null); currentSlot = -1;
+                if (slot < Trainers[index].NumPokemon)
+                {
+                    var dr = MessageBox.Show("What would you like to do with this slot?\n\n[Yes] Overwrite with current changes\n[No] Delete Pokémon from team\n[Cancel] Do nothing", "Slot Actions", MessageBoxButtons.YesNoCancel);
+                    if (dr == DialogResult.Yes)
+                    {
+                        Trainers[index].Pokemon[slot] = PrepareTP7();
+                        GetQuickFiller(pba[slot], Trainers[index].Pokemon[slot]);
+                    }
+                    else if (dr == DialogResult.No)
+                    {
+                        Trainers[index].Pokemon.RemoveAt(slot); Trainers[index].NumPokemon = (int)--NUD_NumPoke.Value;
+                        PopulateTeam(Trainers[index]); GetSlotColor(slot, null); currentSlot = -1;
+                    }
+                    return;
+                }
             }
-        }
-        else if (e.Button == MouseButtons.Left)
-        {
-            if (currentSlot != -1 && currentSlot < Trainers[index].NumPokemon) { Trainers[index].Pokemon[currentSlot] = PrepareTP7(); GetQuickFiller(pba[currentSlot], Trainers[index].Pokemon[currentSlot]); }
+
+            if (currentSlot != -1 && currentSlot < Trainers[index].NumPokemon)
+            {
+                var pk_current = PrepareTP7();
+                if (!pk_current.Write().SequenceEqual(Trainers[index].Pokemon[currentSlot].Write()))
+                {
+                    var dr = MessageBox.Show("Save changes to current slot?", "Unsaved Changes", MessageBoxButtons.YesNo);
+                    if (dr == DialogResult.Yes)
+                    {
+                        Trainers[index].Pokemon[currentSlot] = pk_current;
+                        GetQuickFiller(pba[currentSlot], pk_current);
+                    }
+                }
+            }
             if (slot < Trainers[index].NumPokemon) { var pk = Trainers[index].Pokemon[slot]; try { PopulateFieldsTP7(pk); } catch { } GetSlotColor(slot, Properties.Resources.slotView); currentSlot = slot; }
             else if (slot == Trainers[index].NumPokemon && slot < 6)
             {
                 if (CB_Species.SelectedIndex == 0) { WinFormsUtil.Alert("Can't set empty slot."); return; }
+                if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, "Add this Pokémon to the team?") != DialogResult.Yes) return;
                 var pk = PrepareTP7(); Trainers[index].Pokemon.Add(pk); Trainers[index].NumPokemon = (int)++NUD_NumPoke.Value;
                 GetQuickFiller(pba[slot], pk); GetSlotColor(slot, Properties.Resources.slotView); currentSlot = slot;
             }
@@ -267,12 +291,36 @@ public partial class SMTE : Form
         CB_Item_1.Items.Clear(); CB_Item_2.Items.Clear(); CB_Item_3.Items.Clear(); CB_Item_4.Items.Clear();
         foreach (string s in itemlist) { CB_Item_1.Items.Add(s); CB_Item_2.Items.Add(s); CB_Item_3.Items.Add(s); CB_Item_4.Items.Add(s); }
         CB_Money.Items.Clear(); for (int i = 0; i < 256; i++) CB_Money.Items.Add(i.ToString());
+        
+        // Autocomplete
+        CB_Species.AutoCompleteMode = CB_TrainerID.AutoCompleteMode = CB_Trainer_Class.AutoCompleteMode = 
+        CB_Move1.AutoCompleteMode = CB_Move2.AutoCompleteMode = CB_Move3.AutoCompleteMode = CB_Move4.AutoCompleteMode = 
+        CB_Nature.AutoCompleteMode = CB_Item.AutoCompleteMode = CB_Item_1.AutoCompleteMode = CB_Item_2.AutoCompleteMode = 
+        CB_Item_3.AutoCompleteMode = CB_Item_4.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        
+        CB_Species.AutoCompleteSource = CB_TrainerID.AutoCompleteSource = CB_Trainer_Class.AutoCompleteSource = 
+        CB_Move1.AutoCompleteSource = CB_Move2.AutoCompleteSource = CB_Move3.AutoCompleteSource = CB_Move4.AutoCompleteSource = 
+        CB_Nature.AutoCompleteSource = CB_Item.AutoCompleteSource = CB_Item_1.AutoCompleteSource = CB_Item_2.AutoCompleteSource = 
+        CB_Item_3.AutoCompleteSource = CB_Item_4.AutoCompleteSource = AutoCompleteSource.ListItems;
+
         CB_TrainerID.SelectedIndex = 0; index = 0; pkm = new TrainerPoke7(); PopulateFieldsTP7(pkm);
     }
 
     private void ChangeTrainerIndex(object sender, EventArgs e)
     {
-        if (currentSlot != -1 && index >= 0 && currentSlot < Trainers[index].NumPokemon) Trainers[index].Pokemon[currentSlot] = PrepareTP7();
+        if (currentSlot != -1 && index >= 0 && currentSlot < Trainers[index].NumPokemon)
+        {
+            var pk_current = PrepareTP7();
+            if (!pk_current.Write().SequenceEqual(Trainers[index].Pokemon[currentSlot].Write()))
+            {
+                var dr = MessageBox.Show("Save changes to current slot before switching trainers?", "Unsaved Changes", MessageBoxButtons.YesNo);
+                if (dr == DialogResult.Yes)
+                {
+                    Trainers[index].Pokemon[currentSlot] = pk_current;
+                    GetQuickFiller(pba[currentSlot], pk_current);
+                }
+            }
+        }
         currentSlot = -1; SaveEntry(); LoadEntry(); if (TC_trdata.SelectedIndex == TC_trdata.TabCount - 1) TC_trdata.SelectedIndex = 0;
     }
 

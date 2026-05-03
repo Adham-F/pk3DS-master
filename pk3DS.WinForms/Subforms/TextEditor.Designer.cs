@@ -1,4 +1,4 @@
-﻿namespace pk3DS.WinForms;
+namespace pk3DS.WinForms;
 
 partial class TextEditor
 {
@@ -31,7 +31,7 @@ partial class TextEditor
         this.RTB_Visualizer = new System.Windows.Forms.RichTextBox();
         this.CB_Entry = new System.Windows.Forms.ComboBox();
         this.dgv = new System.Windows.Forms.DataGridView();
-        this.B_NewMoveHandler = new System.Windows.Forms.Button();
+
         ((System.ComponentModel.ISupportInitialize)(this.dgv)).BeginInit();
         this.SuspendLayout();
         // 
@@ -63,15 +63,7 @@ partial class TextEditor
         this.dgv.Size = new System.Drawing.Size(976, 250);
         this.dgv.TabIndex = 0;
         // 
-        // B_NewMoveHandler
-        // 
-        this.B_NewMoveHandler.Location = new System.Drawing.Point(500, 6);
-        this.B_NewMoveHandler.Name = "B_NewMoveHandler";
-        this.B_NewMoveHandler.Size = new System.Drawing.Size(115, 23);
-        this.B_NewMoveHandler.TabIndex = 13;
-        this.B_NewMoveHandler.Text = "New Move Handler";
-        this.B_NewMoveHandler.UseVisualStyleBackColor = true;
-        this.B_NewMoveHandler.Click += new System.EventHandler(this.B_NewMoveHandler_Click);
+
         // 
         // B_AddLineBefore
         // 
@@ -210,7 +202,7 @@ partial class TextEditor
         this.Controls.Add(this.TB_Search);
         this.Controls.Add(this.B_Import);
         this.Controls.Add(this.B_Export);
-        this.Controls.Add(this.B_NewMoveHandler);
+
         this.Controls.Add(this.B_RemoveLine);
         this.Controls.Add(this.B_AddLineBefore);
         this.Controls.Add(this.B_AddLine);
@@ -233,7 +225,7 @@ partial class TextEditor
 
     private System.Windows.Forms.ComboBox CB_Entry;
     private System.Windows.Forms.DataGridView dgv;
-    private System.Windows.Forms.Button B_NewMoveHandler;
+
     private System.Windows.Forms.Button B_AddLineBefore;
     private System.Windows.Forms.Button B_AddLine;
     private System.Windows.Forms.Button B_RemoveLine;

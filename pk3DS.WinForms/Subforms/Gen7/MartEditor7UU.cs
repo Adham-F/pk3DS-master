@@ -31,6 +31,10 @@ public partial class MartEditor7UU : Form
     private string path_BP => Path.Combine(Main.RomFSPath, "mart_bp_ofs.txt");
     private string path_Tutors => Path.Combine(Main.RomFSPath, "mart_tutor_ofs.txt");
     private string codeOfsFile { get { return Path.Combine(Main.ExeFSPath, "mart_code_offset.txt"); } }
+    
+    // Mega Safe Zone: Large unused padding in Segment 2 (Data)
+    private const int SafeZoneBase = 0x5800; 
+    private const int SafeZoneSize = 2048;
 
     public MartEditor7UU()
     {
@@ -69,26 +73,18 @@ public partial class MartEditor7UU : Form
     private void LoadOffsets()
     {
         // Try RPT first (Full Compatibility Mode)
-        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C); // Tutor base
-        if (rpt_sizeBase != -1)
+        int rpt_tutorSizes = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
+        int rpt_bpSizes = ResearchEngine.GetRelocationPatchTarget(data, 0x030);
+        int rpt_pokeSizes = ResearchEngine.GetRelocationPatchTarget(data, 0x024);
+
+        if (rpt_pokeSizes != -1 && rpt_bpSizes != -1)
         {
-            ofs_CountsBP = rpt_sizeBase + 4; // BP starts at index 4
-            ofs_Counts = rpt_sizeBase + 11;  // Mart starts at index 11
+            ofs_CountsBP = rpt_bpSizes;
+            ofs_Counts = rpt_pokeSizes;
+            ofs_Tutors = rpt_tutorSizes;
             Text = "Mart Editor (RPT Mode)";
 
-            byte[] bpCounts = data.Skip(rpt_sizeBase + 4).Take(7).ToArray();
-            len_BPItem = new byte[10];
-            len_BPItem[0] = bpCounts[1]; // Royale Middle (index 5)
-            len_BPItem[1] = bpCounts[0]; // Royale Left (index 4)
-            len_BPItem[2] = bpCounts[2]; // Royale Right (index 6)
-            len_BPItem[3] = bpCounts[4]; // Tree Middle (index 8)
-            len_BPItem[4] = bpCounts[3]; // Tree Left (index 7)
-            len_BPItem[5] = bpCounts[5]; // Tree Right (index 9)
-            len_BPItem[6] = 4; // Medicine
-            len_BPItem[7] = 3; // Items
-            len_BPItem[8] = 3; // Held Items
-            len_BPItem[9] = 3; // EV Training
-            
+            len_BPItem = data.Skip(ofs_CountsBP).Take(10).ToArray();
             len_Items = data.Skip(ofs_Counts).Take(28).ToArray();
         }
         else
@@ -185,6 +181,7 @@ public partial class MartEditor7UU : Form
         }
     }
     private readonly string[] itemlist = Main.Config.GetText(TextName.ItemNames);
+    private readonly string[] movelist = Main.Config.GetText(TextName.MoveNames);
 
     #region Tables
     private readonly string[] locations =
@@ -212,19 +209,15 @@ public partial class MartEditor7UU : Form
         "Mount Lanakila [X Items]",
     ];
 
-    private readonly string[] locationsBP =
-    [
-        "Battle Royal Dome [Medicine]",
-        "Battle Royal Dome [EV Training]",
-        "Battle Royal Dome [Held Items]",
-        "Battle Tree [Trade Evolution Items]",
-        "Battle Tree [Held Items]",
-        "Battle Tree [Mega Stones]",
-        "Big Wave Beach",
-        "Heahea Beach",
-        "Ula'ula Beach",
-        "Poni Beach",
-    ];
+    private readonly string[] locationsBP = {
+        "Battle Royale (Left)",
+        "Battle Royale (Middle)",
+        "Battle Royale (Right)",
+        "Battle Tree (Left)",
+        "Battle Tree (Middle)",
+        "Battle Tree (Right)",
+    };
+
     #endregion
 
     private void B_Save_Click(object sender, EventArgs e)
@@ -240,8 +233,8 @@ public partial class MartEditor7UU : Form
 
     private void SetupDGV()
     {
-        dgvItem.Items.AddRange(itemlist); // add only the Names
-        dgvItemBP.Items.AddRange(itemlist); // add only the Names
+        dgvItem.Items.Clear();
+        dgvItem.Items.AddRange(itemlist);
         dgv.DataError += (s, e) => e.ThrowException = false;
         dgvbp.DataError += (s, e) => e.ThrowException = false;
     }
@@ -266,17 +259,17 @@ public partial class MartEditor7UU : Form
     private static readonly uint[] MartPatchAddrs = {
         0x594, 0x5A0, 0x5AC, 0x5B8, 0x5C4, 0x5D0, 0x5DC, 0x5E8, // Trials 0-7 (Indices 0-7)
         0x5F4, // Konikoni Incense (8)
-        0x450, // Konikoni Herb (9)
+        0x3F0, // Konikoni Herb (9)
         0x42C, // Hau'oli X Items (10)
         0x438, // Route 2 Misc (11)
-        0x4F8, // Heahea TM (12)
-        0x444, // Royal Avenue TMs (13)
+        0x434, // Heahea TM (12)
+        0x450, // Royal Avenue TMs (13)
         0x45C, // Route 8 (14)
         0x474, // Paniola Town (15)
         0x48C, // Malie City [TMs] (16)
-        0x3F0, // Mount Hokulani (17)
+        0x4B0, // Mount Hokulani (17)
         0x4BC, // Seafolk Village [TMs] (18)
-        0x4E0, // Konikoni City [TMs] (19)
+        0x3FC, // Konikoni City [TMs] (19)
         0x3FC, // Konikoni City [Stones] (20)
         0x408, // Thrifty Megamart, Left (21)
         0x414, // Thrifty Megamart, Middle (22)
@@ -288,29 +281,20 @@ public partial class MartEditor7UU : Form
     };
 
     private static readonly uint[] BPPatchAddrs = {
-        0x510, // Royale Middle (0)
-        0x504, // Royale Left (1)
+        0x504, // Royale Left (0)
+        0x510, // Royale Middle (1)
         0x51C, // Royale Right (2)
-        0x534, // Tree Middle (3)
-        0x528, // Tree Left (4)
+        0x528, // Tree Left (3)
+        0x534, // Tree Middle (4)
         0x540, // Tree Right (5)
-        0x54C, // Beach (Unified) (6)
     };
 
-    private int GetShopOffset(int shopIdx, bool isBP)
+    private int GetShopOffset(int shopIdx, bool isBP = false)
     {
         if (isBP)
         {
-            int rptIdx = Math.Min(shopIdx, 6);
-            int rptOfs = ResearchEngine.GetRelocationPatchTarget(data, BPPatchAddrs[rptIdx]);
-            if (rptOfs == -1) return -1;
-
-            // Handle Beach sub-sections (Medicine=6, Items=7, Held=8, EV=9)
-            // The unified Beach table starts with items (13 total).
-            if (shopIdx == 6) return rptOfs + 0;
-            if (shopIdx == 7) return rptOfs + (4 * 4);
-            if (shopIdx == 8) return rptOfs + (7 * 4);
-            if (shopIdx == 9) return rptOfs + (10 * 4);
+            if (shopIdx >= BPPatchAddrs.Length) return -1;
+            int rptOfs = ResearchEngine.GetRelocationPatchTarget(data, BPPatchAddrs[shopIdx]);
             return rptOfs;
         }
         else
@@ -373,58 +357,82 @@ public partial class MartEditor7UU : Form
             int ofs = GetShopOffset(entryBPItem, true);
             if (ofs == -1) return;
 
-            bool isBeach = entryBPItem >= 6;
-            int entrySize = isBeach ? 8 : 4;
+            dgvItemBP.Items.Clear();
+            dgvItemBP.Items.AddRange(itemlist);
+
+            int entrySize = 4;
             for (int i = 0; i < count; i++)
             {
                 int m_ofs = ofs + (entrySize * i);
                 if (m_ofs + entrySize > data.Length) break;
 
-                int p_ofs = m_ofs + (isBeach ? 4 : 2);
                 ushort itemID = BitConverter.ToUInt16(data, m_ofs);
+                ushort price = BitConverter.ToUInt16(data, m_ofs + 2);
                 
                 dgvbp.Rows[i].Cells[0].Value = i.ToString();
                 string val = (itemID < itemlist.Length) ? itemlist[itemID] : $"(Unknown: {itemID})";
 
                 var cell = (DataGridViewComboBoxCell)dgvbp.Rows[i].Cells[1];
-                if (!cell.Items.Contains(val)) cell.Items.Add(val);
                 cell.Value = val;
-
-                if (isBeach)
-                    dgvbp.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, p_ofs).ToString();
-                else
-                    dgvbp.Rows[i].Cells[2].Value = BitConverter.ToUInt16(data, p_ofs).ToString();
+                dgvbp.Rows[i].Cells[2].Value = price.ToString();
             }
         }
         catch (Exception ex) { WinFormsUtil.Error("Crash in GetListBPItem", ex.ToString()); }
     }
 
+    private int FindSafeSpace(int bytes)
+    {
+        // Simple allocator: find first block of 0xFFFFs (unallocated/padding) in the safe zone
+        for (int i = 0; i <= SafeZoneSize - bytes; i += 2)
+        {
+            bool free = true;
+            for (int j = 0; j < bytes; j += 2)
+            {
+                ushort val = BitConverter.ToUInt16(data, SafeZoneBase + i + j);
+                if (val != 0xFFFF && val != 0x0000)
+                {
+                    free = false;
+                    break;
+                }
+            }
+            if (free) return SafeZoneBase + i;
+        }
+        return -1;
+    }
+
     private void SetListItem()
     {
         int count = dgv.Rows.Count;
-        int shopOfs = GetShopOffset(entryItem, false);
-        if (shopOfs == -1) return;
+        int shopOfs = GetShopOffset(entryItem);
+        if (shopOfs <= 0) return;
 
-        if (len_Items == null || entryItem < 0 || entryItem >= len_Items.Length) return;
         if (count > len_Items[entryItem])
         {
-            // Expansion!
-            int newSize = count * 2;
-            int newOfs = data.Length;
-            data = CROUtil.ExpandSegment(data, 'd', newSize);
+            // Expansion into Mega Safe Zone
+            int required = (count + 1) * 2; // +1 for terminator
+            int freeOfs = FindSafeSpace(required);
+            if (freeOfs == -1)
+            {
+                WinFormsUtil.Alert("No space left in Safe Zone for expansion.");
+                return;
+            }
             
-            if (entryItem < MartPatchAddrs.Length)
-                ResearchEngine.RepointRelocationByOffset(data, MartPatchAddrs[entryItem], (uint)newOfs);
-            
-            shopOfs = newOfs;
+            // Wipe the rest of the zone with Quit markers on first expansion if needed
+            if (BitConverter.ToUInt16(data, SafeZoneBase) == 0)
+            {
+                for (int i = 0; i < SafeZoneSize; i += 2)
+                    BitConverter.GetBytes((ushort)0xFFFF).CopyTo(data, SafeZoneBase + i);
+            }
+
+            ResearchEngine.RepointRelocationByOffset(data, MartPatchAddrs[entryItem], (uint)freeOfs);
+            shopOfs = freeOfs;
         }
 
         for (int i = 0; i < count; i++)
         {
             int item = Array.IndexOf(itemlist, dgv.Rows[i].Cells[1].Value);
             int m_ofs = shopOfs + (2 * i);
-            if (m_ofs + 2 > data.Length) break;
-            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, m_ofs, 2);
+            BitConverter.GetBytes((ushort)item).CopyTo(data, m_ofs);
         }
         
         data[ofs_Counts + entryItem] = (byte)count;
@@ -433,25 +441,26 @@ public partial class MartEditor7UU : Form
 
     private void SetListBPItem()
     {
+        if (entryBPItem < 0 || entryBPItem >= len_BPItem.Length) return;
         int count = dgvbp.Rows.Count;
         int shopOfs = GetShopOffset(entryBPItem, true);
-        if (shopOfs == -1) return;
+        if (shopOfs <= 0) return;
 
-        bool isBeach = entryBPItem >= 6;
-        int entrySize = isBeach ? 8 : 4;
+        int entrySize = 4; // USUM: moves are always 4 bytes (Price + Move)
 
-        if (len_BPItem == null || entryBPItem < 0 || entryBPItem >= len_BPItem.Length) return;
         if (count > len_BPItem[entryBPItem])
         {
-            // Expansion!
-            int newSize = count * entrySize;
-            int newOfs = data.Length;
-            data = CROUtil.ExpandSegment(data, 'd', newSize);
-            
-            if (entryBPItem < BPPatchAddrs.Length)
-                ResearchEngine.RepointRelocationByOffset(data, BPPatchAddrs[entryBPItem], (uint)newOfs);
-            
-            shopOfs = newOfs;
+            // Expansion into Mega Safe Zone
+            int required = (count + 1) * entrySize;
+            int freeOfs = FindSafeSpace(required);
+            if (freeOfs == -1)
+            {
+                WinFormsUtil.Alert("No space left in Safe Zone for expansion.");
+                return;
+            }
+
+            ResearchEngine.RepointRelocationByOffset(data, BPPatchAddrs[entryBPItem], (uint)freeOfs);
+            shopOfs = freeOfs;
         }
 
         for (int i = 0; i < count; i++)
@@ -460,24 +469,11 @@ public partial class MartEditor7UU : Form
             uint price = 4; uint.TryParse(dgvbp.Rows[i].Cells[2].Value.ToString(), out price);
 
             int m_ofs = shopOfs + (entrySize * i);
-            int p_ofs = m_ofs + (isBeach ? 4 : 2);
-            if (p_ofs + (isBeach ? 4 : 2) > data.Length) break;
-
-            Array.Copy(BitConverter.GetBytes((ushort)item), 0, data, m_ofs, 2);
-            Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, p_ofs, 2);
+            BitConverter.GetBytes((ushort)item).CopyTo(data, m_ofs);
+            BitConverter.GetBytes((ushort)price).CopyTo(data, m_ofs + 2);
         }
         
-        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
-        int[] bpMap = { 1, 0, 2, 4, 3, 5, 6 };
-        if (entryBPItem < 6)
-        {
-            data[rpt_sizeBase + 3 + bpMap[entryBPItem]] = (byte)count;
-        }
-        else
-        {
-            // Update the unified beach count (Index 10)
-            data[rpt_sizeBase + 4 + 6] = (byte)(len_BPItem[6] + len_BPItem[7] + len_BPItem[8] + len_BPItem[9]);
-        }
+        data[ofs_CountsBP + entryBPItem] = (byte)count;
         len_BPItem[entryBPItem] = (byte)count;
     }
 

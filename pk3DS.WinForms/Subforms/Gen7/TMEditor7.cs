@@ -181,39 +181,47 @@ public partial class TMEditor7 : Form
 
     /// <summary>
     /// Scans code.bin for the CMP instruction that originally checked #100 (0x64) for TM count.
+    /// Only searches near the TM table offset to avoid false positives from unrelated CMP instructions.
     /// Decodes ARM rotated immediates to return the actual patched value.
     /// </summary>
-    private static int DetectTMCount(byte[] codeData)
+    private int DetectTMCount(byte[] codeData)
     {
         // The original instruction is CMP R0, #0x64 (100) => E3 50 00 64
-        // After patching, the immediate changes. We look for CMP R0, #imm near the TM check region.
-        // CMP Rn, #imm has opcode mask 0x0FF00000 == 0x03500000 (for R0) 
-        // We scan for any CMP that's > 100 and <= 128, which would indicate a TM expansion.
+        // After a TM expansion patch, this immediate is changed to the new count.
+        // We ONLY search near the TM table region to avoid matching random CMP instructions
+        // elsewhere in the binary (which was causing false positive 128-slot detection).
         
-        int bestCount = 0;
+        // Search within a reasonable window around the TM table offset
+        int searchStart = Math.Max(0, offset - 0x2000);
+        int searchEnd = Math.Min(codeData.Length - 4, offset + 0x2000);
         
-        for (int i = 0; i < codeData.Length - 4; i += 4)
+        // First pass: look for the exact original CMP R0, #100 (unpatched)
+        for (int i = searchStart; i < searchEnd; i += 4)
         {
             uint word = BitConverter.ToUInt32(codeData, i);
-            // Match CMP R0, #imm (E3 50 0r ii) - condition AL, opcode CMP, Rn=R0
+            if (word == 0xE3500064) // CMP R0, #0x64 (exactly 100, unpatched)
+                return 100; // Original game, no expansion
+        }
+        
+        // Second pass: the CMP was patched — find the new value
+        int bestCount = 0;
+        for (int i = searchStart; i < searchEnd; i += 4)
+        {
+            uint word = BitConverter.ToUInt32(codeData, i);
+            // Match CMP R0, #imm (condition AL, opcode CMP, Rn=R0)
             if ((word & 0xFFF00000) != 0xE3500000) continue;
             
             // Decode ARM rotated immediate
             uint imm8 = word & 0xFF;
             uint rot = (word >> 8) & 0xF;
-            uint value = (imm8 >> (int)(rot * 2)) | (imm8 << (int)(32 - rot * 2));
-            if (rot == 0) value = imm8;
+            uint value = rot == 0 ? imm8 : (imm8 >> (int)(rot * 2)) | (imm8 << (int)(32 - rot * 2));
             
-            // We're looking for a value that replaced the original 100 (0x64)
-            // Valid TM counts: anything from 101 to 128
-            if (value > 100 && value <= 128)
-            {
-                if ((int)value > bestCount)
-                    bestCount = (int)value;
-            }
+            // Valid expanded TM counts: 101-128
+            if (value > 100 && value <= 128 && (int)value > bestCount)
+                bestCount = (int)value;
         }
         
-        return bestCount > 0 ? bestCount : 100; // default to 100 if no expansion detected
+        return bestCount > 0 ? bestCount : 100;
     }
 
     private void SetList()
@@ -301,11 +309,20 @@ public partial class TMEditor7 : Form
         if (!File.Exists(files[0]) || !Path.GetFileNameWithoutExtension(files[0]).Contains("code")) return [];
         
         byte[] data = File.ReadAllBytes(files[0]);
-        int dataoffset = Util.IndexOfBytes(data, Signature, 0x400000, 0) + Signature.Length;
         if (data.Length % 0x200 != 0) return [];
-        if (Main.Config.USUM) dataoffset += 0x22;
 
-        int count = DetectTMCount(data);
+        // Use universal TM table signature detection
+        byte[] tmSig = [0x0E, 0x02, 0x51, 0x01, 0xD9, 0x01];
+        int dataoffset = Util.IndexOfBytes(data, tmSig, 0x100000, 0);
+        if (dataoffset < 0)
+        {
+            dataoffset = Util.IndexOfBytes(data, Signature, 0x400000, 0) + Signature.Length;
+            if (Main.Config.USUM) dataoffset += 0x22;
+        }
+
+        // Static callers always get the base 100 TMs — expansion detection
+        // requires the instance context (offset) to avoid false positives.
+        int count = 100;
 
         List<ushort> tms = [];
         for (int i = 0; i < count; i++) 

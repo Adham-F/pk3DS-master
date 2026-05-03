@@ -24,12 +24,15 @@ namespace pk3DS.WinForms
         private List<Dictionary<string, string>> selectedResearchData;
         private NumericUpDown numTargetOverride;
         private Button btnDeploySelected;
+        private ComboBox cmbSheets;
+        private ComboBox cmbTargetSearch;
         private string detectedTypeForOverride = "Move";
 
         public ResearchCenter7()
         {
             InitializeComponent();
             this.WindowState = FormWindowState.Maximized;
+
             WinFormsUtil.ApplyTheme(this);
             ApplyPremiumAesthetics();
             InitializeKeystone();
@@ -37,10 +40,51 @@ namespace pk3DS.WinForms
             InitializeProjectExplorer();
             InitializeModernHexEditor();
             InitializeARMTranslator();
+            InitializeSheetSelector();
+            InitializeTargetingUI();
             tvExplorer.AfterSelect += (s, e) => LoadSelectedResearch();
             btnExpMoves.Click += (s, e) => ExecuteQuickExpand("Move");
             btnExpAbils.Click += (s, e) => ExecuteQuickExpand("Ability");
             btnExpItems.Click += (s, e) => ExecuteQuickExpand("Item");
+            btnCustomPatch.Click += (s, e) => ApplyCustomPatches();
+        }
+
+        private void InitializeSheetSelector()
+        {
+            cmbSheets = new ComboBox
+            {
+                Dock = DockStyle.Top,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = Color.FromArgb(40, 40, 50),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F)
+            };
+            splitInspector.Panel1.Controls.Add(cmbSheets);
+            splitInspector.Panel1.Controls.SetChildIndex(cmbSheets, 0); // Top of the panel
+            cmbSheets.SelectedIndexChanged += (s, e) => LoadSheetData(cmbSheets.SelectedItem?.ToString());
+        }
+
+        private void InitializeTargetingUI()
+        {
+            var pnl = new Panel { Dock = DockStyle.Top, Height = 65, Padding = new Padding(10), BackColor = Color.FromArgb(30, 30, 40) };
+            cmbTargetSearch = new ComboBox 
+            { 
+                Dock = DockStyle.Top, 
+                DropDownStyle = ComboBoxStyle.DropDown, 
+                BackColor = Color.FromArgb(45, 45, 55), 
+                ForeColor = Color.White, 
+                FlatStyle = FlatStyle.Flat,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
+            numTargetOverride = new NumericUpDown { Visible = false }; // Keep logic-only, hide from UI
+            
+            pnl.Controls.Add(cmbTargetSearch);
+            pnl.Controls.Add(new Label { Text = "QUICK TARGET (Searchable):", Dock = DockStyle.Top, ForeColor = Color.Cyan, Font = new Font("Segoe UI", 8F, FontStyle.Bold) });
+            
+            splitInspector.Panel2.Controls.Add(pnl);
+            cmbTargetSearch.SelectedIndexChanged += (s, e) => { if (cmbTargetSearch.SelectedIndex > 0) numTargetOverride.Value = cmbTargetSearch.SelectedIndex; };
         }
 
         private void ApplyPremiumAesthetics()
@@ -58,39 +102,81 @@ namespace pk3DS.WinForms
             btnMasterDeploy.BackColor = Color.FromArgb(0, 102, 204);
         }
 
+        private static bool _keystoneResolverRegistered;
+
         private void InitializeKeystone() 
         { 
             try { 
                 LogDeployment($"Process Architecture: {(Environment.Is64BitProcess ? "x64" : "x86")}");
                 
-                // Explicitly load the native library to handle architecture-specific paths
-                string libName = "keystone.dll";
-                string arch = Environment.Is64BitProcess ? "x64" : "x86";
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 
-                // Try root first, then arch subfolder
-                string probeRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, libName);
-                string probeArch = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, arch, libName);
-                
-                if (File.Exists(probeRoot)) {
-                    System.Runtime.InteropServices.NativeLibrary.Load(probeRoot);
-                    LogDeployment($"Pre-loaded native {libName} from root folder.");
-                }
-                else if (File.Exists(probeArch)) {
-                    System.Runtime.InteropServices.NativeLibrary.Load(probeArch);
-                    LogDeployment($"Pre-loaded native {libName} from {arch} folder.");
-                }
-                else {
-                    LogDeployment($"Warning: {libName} not found in root or {arch} subfolder.");
+                // Register a DLL import resolver so P/Invoke for "keystone" finds our local copy
+                if (!_keystoneResolverRegistered)
+                {
+                    System.Runtime.InteropServices.NativeLibrary.SetDllImportResolver(
+                        typeof(Engine).Assembly,
+                        (name, asm, searchPath) =>
+                        {
+                            if (name == "keystone")
+                            {
+                                // Try root first, then architecture subfolder
+                                string rootDll = Path.Combine(baseDir, "keystone.dll");
+                                if (File.Exists(rootDll) &&
+                                    System.Runtime.InteropServices.NativeLibrary.TryLoad(rootDll, out var h1))
+                                    return h1;
+                                    
+                                string arch = Environment.Is64BitProcess ? "x64" : "x86";
+                                string archDll = Path.Combine(baseDir, arch, "keystone.dll");
+                                if (File.Exists(archDll) &&
+                                    System.Runtime.InteropServices.NativeLibrary.TryLoad(archDll, out var h2))
+                                    return h2;
+                            }
+                            return IntPtr.Zero;
+                        });
+                    _keystoneResolverRegistered = true;
                 }
 
                 keystone = new Engine(Architecture.ARM, Mode.ARM); 
-                LogDeployment("ARM Translator Engine (Keystone) initialized successfully.");
+                
+                // Validate with a test instruction
+                var test = keystone.Assemble("MOV R0, R0", 0);
+                if (test != null && test.Buffer.Length == 4)
+                {
+                    LogDeployment("ARM Translator Engine (Keystone) initialized and validated ✓");
+                }
+                else
+                {
+                    LogDeployment("ARM Translator Engine loaded but test assembly produced unexpected output.");
+                }
             } catch (Exception ex) { 
-                LogDeployment($"ARM Translator Warning: {ex.Message}");
-                if (ex.InnerException != null) LogDeployment($"Details: {ex.InnerException.Message}");
+                keystone = null;
+                LogDeployment($"ARM Translator Error: {ex.GetType().Name}: {ex.Message}");
+                if (ex.InnerException != null) 
+                    LogDeployment($"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+                
+                // Provide diagnostic info
+                string baseDir2 = AppDomain.CurrentDomain.BaseDirectory;
+                string dllRoot = Path.Combine(baseDir2, "keystone.dll");
+                string dllX64 = Path.Combine(baseDir2, "x64", "keystone.dll");
+                string dllX86 = Path.Combine(baseDir2, "x86", "keystone.dll");
+                LogDeployment($"  DLL check: root={File.Exists(dllRoot)}, x64={File.Exists(dllX64)}, x86={File.Exists(dllX86)}");
+                LogDeployment("  TIP: Keystone requires the Visual C++ 2015-2022 Redistributable (x64).");
+                LogDeployment("  Download: https://aka.ms/vs/17/release/vc_redist.x64.exe");
             } 
         }
-        private void InitializeCapstone() { try { capstone = CapstoneDisassembler.CreateArmDisassembler(ArmDisassembleMode.Arm); } catch { } }
+        private void InitializeCapstone() 
+        { 
+            try 
+            { 
+                capstone = CapstoneDisassembler.CreateArmDisassembler(ArmDisassembleMode.Arm);
+                LogDeployment("ARM Disassembler (Capstone) initialized ✓");
+            } 
+            catch (Exception ex) 
+            { 
+                LogDeployment($"Capstone init failed: {ex.Message}"); 
+            } 
+        }
 
         private void InitializeProjectExplorer()
         {
@@ -134,42 +220,100 @@ namespace pk3DS.WinForms
         private void InitializeARMTranslator()
         {
             Tab_ARM.SuspendLayout();
+            
+            // Top toolbar with mode selector and base address
+            var toolbar = new Panel { Dock = DockStyle.Top, Height = 35, BackColor = Color.FromArgb(25, 25, 35) };
+            var lblMode = new Label { Text = "Mode:", ForeColor = Color.WhiteSmoke, Left = 8, Top = 8, AutoSize = true };
+            var cmbMode = new ComboBox { Left = 50, Top = 5, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
+            cmbMode.Items.AddRange(new object[] { "ASM → Hex", "Hex → ASM" });
+            cmbMode.SelectedIndex = 0;
+            cmbMode.BackColor = Color.FromArgb(40, 40, 50);
+            cmbMode.ForeColor = Color.WhiteSmoke;
+            
+            var lblBase = new Label { Text = "Base Addr:", ForeColor = Color.WhiteSmoke, Left = 190, Top = 8, AutoSize = true };
+            var txtBase = new TextBox { Left = 260, Top = 5, Width = 100, Text = "00000000" };
+            txtBase.BackColor = Color.FromArgb(15, 15, 20);
+            txtBase.ForeColor = Color.Cyan;
+            txtBase.Font = new Font("Consolas", 10F);
+            
+            toolbar.Controls.AddRange(new Control[] { lblMode, cmbMode, lblBase, txtBase });
+            Tab_ARM.Controls.Add(toolbar);
+            
             var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, SplitterDistance = 300 };
             Tab_ARM.Controls.Add(split);
+            split.BringToFront(); // ensure splitter is below toolbar
             
             this.txtAsmIn.Dock = DockStyle.Fill;
             this.txtAsmIn.BackColor = Color.FromArgb(10, 10, 15);
             this.txtAsmIn.ForeColor = Color.White;
             this.txtAsmIn.Font = new Font("Consolas", 11F);
             this.txtAsmIn.BorderStyle = BorderStyle.None;
-            this.txtAsmIn.Text = "; Enter ARM Assembly here (e.g. mov r0, r0)\n";
+            this.txtAsmIn.Text = "; Enter ARM Assembly here (e.g. MOV R0, R0)\n; Or switch to Hex → ASM mode to disassemble hex bytes\n";
             
             this.txtHexOut.Dock = DockStyle.Fill;
             this.txtHexOut.BackColor = Color.FromArgb(10, 10, 15);
             this.txtHexOut.ForeColor = Color.SpringGreen;
             this.txtHexOut.Font = new Font("Consolas", 11F);
             this.txtHexOut.BorderStyle = BorderStyle.None;
-            this.txtHexOut.Text = keystone == null ? "; Keystone engine failed to load. Ensure keystone.dll is present." : "; Hex Output";
+            
+            if (keystone == null)
+                this.txtHexOut.Text = "; Keystone engine failed to load. Check the Modding tab log for details.";
+            else
+                this.txtHexOut.Text = "; Output will appear here";
             
             split.Panel1.Controls.Add(this.txtAsmIn);
             split.Panel2.Controls.Add(this.txtHexOut);
             
-            this.txtAsmIn.TextChanged += (s, e) => UpdateAsmToHex();
+            // Mode-aware text change handler
+            this.txtAsmIn.TextChanged += (s, e) => 
+            {
+                if (cmbMode.SelectedIndex == 0)
+                    UpdateAsmToHex(txtBase.Text);
+                else
+                    UpdateHexToAsm(txtBase.Text);
+            };
+            
+            cmbMode.SelectedIndexChanged += (s, e) =>
+            {
+                if (cmbMode.SelectedIndex == 0)
+                {
+                    txtAsmIn.ForeColor = Color.White;
+                    txtHexOut.ForeColor = Color.SpringGreen;
+                    UpdateAsmToHex(txtBase.Text);
+                }
+                else
+                {
+                    txtAsmIn.ForeColor = Color.SpringGreen;
+                    txtHexOut.ForeColor = Color.White;
+                    UpdateHexToAsm(txtBase.Text);
+                }
+            };
+            
             Tab_ARM.ResumeLayout(true);
         }
 
-        private void UpdateAsmToHex()
+        private void UpdateAsmToHex(string baseAddrText = "0")
         {
             if (keystone == null) {
                 txtHexOut.Text = "; Keystone engine failed to load.";
                 return;
             }
+            
+            uint baseAddr = 0;
+            if (!string.IsNullOrEmpty(baseAddrText))
+                uint.TryParse(baseAddrText, System.Globalization.NumberStyles.HexNumber, null, out baseAddr);
+            
             var sb = new StringBuilder();
             foreach (var l in txtAsmIn.Lines) { 
                 if (string.IsNullOrWhiteSpace(l) || l.Trim().StartsWith(";")) continue; 
                 try {
-                    var r = keystone.Assemble(l, 0); 
-                    if (r != null) foreach (byte b in r.Buffer) sb.Append(b.ToString("X2") + " "); 
+                    var r = keystone.Assemble(l, baseAddr); 
+                    if (r != null && r.Buffer.Length > 0)
+                    {
+                        foreach (byte b in r.Buffer) sb.Append(b.ToString("X2") + " ");
+                        sb.Append($"  ; {l.Trim()}");
+                        baseAddr += (uint)r.Buffer.Length;
+                    }
                     sb.AppendLine(); 
                 } catch (Exception ex) {
                     sb.AppendLine($"; Error: {ex.Message}");
@@ -178,20 +322,106 @@ namespace pk3DS.WinForms
             txtHexOut.Text = sb.ToString();
         }
 
+        private void UpdateHexToAsm(string baseAddrText = "0")
+        {
+            if (capstone == null) {
+                txtHexOut.Text = "; Capstone disassembler not available.";
+                return;
+            }
+            
+            uint baseAddr = 0;
+            if (!string.IsNullOrEmpty(baseAddrText))
+                uint.TryParse(baseAddrText, System.Globalization.NumberStyles.HexNumber, null, out baseAddr);
+            
+            try
+            {
+                // Parse hex input
+                string input = txtAsmIn.Text.Replace("\r", "").Replace("\n", " ");
+                byte[] bytes = ResearchEngine.HexToBytes(input);
+                if (bytes == null || bytes.Length == 0)
+                {
+                    txtHexOut.Text = "; Enter hex bytes above (e.g. E1A00000 00F020E3)";
+                    return;
+                }
+                
+                var sb = new StringBuilder();
+                var instructions = capstone.Disassemble(bytes, (long)baseAddr);
+                foreach (var instr in instructions)
+                {
+                    sb.AppendLine($"0x{instr.Address:X8}:  {instr.Mnemonic,-10} {instr.Operand}");
+                }
+                
+                if (sb.Length == 0)
+                    sb.AppendLine("; No valid ARM instructions found");
+                    
+                txtHexOut.Text = sb.ToString();
+            }
+            catch (Exception ex)
+            {
+                txtHexOut.Text = $"; Disassembly error: {ex.Message}";
+            }
+        }
+
         private void LoadSelectedResearch()
         {
             if (tvExplorer.SelectedNode?.Tag is not string path) return;
             actualXlsxSourcePath = path; selectedXlsxPath = path;
+
+            // Detect target type from path for Quick Target list
+            string p = actualXlsxSourcePath.ToLower();
+            if (p.Contains("ability_edits") || p.Contains("abilities")) detectedTypeForOverride = "Ability";
+            else if (p.Contains("item_edits") || p.Contains("items")) detectedTypeForOverride = "Item";
+            else detectedTypeForOverride = "Move";
+            
+            UpdateQuickTargetList();
+
             if (path.StartsWith("res:"))
             {
                 var stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream(path.Substring(4));
                 if (stream != null) { string tmp = Path.Combine(Path.GetTempPath(), "pk3ds_tmp.xlsx"); using (var fs = new FileStream(tmp, FileMode.Create)) stream.CopyTo(fs); selectedXlsxPath = tmp; }
             }
+            
             try {
-                selectedResearchData = XlsxResearchParser.ReadSheet(selectedXlsxPath, "Custom Relocation Patches");
-                if (selectedResearchData.Count == 0) selectedResearchData = XlsxResearchParser.ReadSheet(selectedXlsxPath, "Sheet1");
+                var sheets = XlsxResearchParser.GetSheetNames(selectedXlsxPath)
+                    .Where(s => !IsMetadataSheet(s))
+                    .ToList();
+
+                cmbSheets.Items.Clear();
+                foreach (var s in sheets) cmbSheets.Items.Add(s);
+                
+                if (cmbSheets.Items.Count > 0)
+                    cmbSheets.SelectedIndex = 0;
+                else
+                    LoadSheetData("Sheet1"); // Fallback
+            } catch (Exception ex) { LogDeployment($"Load Error: {ex.Message}"); }
+        }
+
+        private void UpdateQuickTargetList()
+        {
+            if (cmbTargetSearch == null) return;
+            cmbTargetSearch.Items.Clear();
+            cmbTargetSearch.Items.Add($"--- Select {detectedTypeForOverride} Target ---");
+            string[] list = detectedTypeForOverride switch
+            {
+                "Ability" => Main.Config.GetText(TextName.AbilityNames),
+                "Item" => Main.Config.GetText(TextName.ItemNames),
+                _ => Main.Config.GetText(TextName.MoveNames),
+            };
+            if (list != null) foreach (var s in list) cmbTargetSearch.Items.Add(s);
+            cmbTargetSearch.SelectedIndex = 0;
+            numTargetOverride.Value = 0;
+        }
+
+        private void LoadSheetData(string sheetName)
+        {
+            if (string.IsNullOrEmpty(sheetName) || string.IsNullOrEmpty(selectedXlsxPath)) return;
+            try {
+                selectedResearchData = XlsxResearchParser.ReadSheet(selectedXlsxPath, sheetName);
                 dgvResearch.Columns.Clear(); dgvResearch.Rows.Clear();
-                if (selectedResearchData.Count > 0) { foreach (var k in selectedResearchData[0].Keys) dgvResearch.Columns.Add(k, k); foreach (var r in selectedResearchData) dgvResearch.Rows.Add(r.Values.ToArray()); }
+                if (selectedResearchData.Count > 0) { 
+                    foreach (var k in selectedResearchData[0].Keys) dgvResearch.Columns.Add(k, k); 
+                    foreach (var r in selectedResearchData) dgvResearch.Rows.Add(r.Values.ToArray()); 
+                }
                 UpdateHexViewFromSelection();
                 EnsureDeploySelectedButton();
             } catch (Exception ex) { LogDeployment($"Load Error: {ex.Message}"); }
@@ -313,10 +543,7 @@ namespace pk3DS.WinForms
         private void EnsureDeploySelectedButton()
         {
             if (btnDeploySelected != null) return;
-            var pnl = new Panel { Dock = DockStyle.Top, Height = 60, Padding = new Padding(10), BackColor = Color.FromArgb(30, 30, 40) };
-            numTargetOverride = new NumericUpDown { Dock = DockStyle.Top, Maximum = 1000 };
-            pnl.Controls.Add(numTargetOverride); pnl.Controls.Add(new Label { Text = "OVERRIDE INDEX:", Dock = DockStyle.Top, ForeColor = Color.Cyan });
-            splitInspector.Panel2.Controls.Add(pnl);
+            
             btnDeploySelected = new Button { Text = "Apply Selected to Patch", Dock = DockStyle.Top, Height = 50, FlatStyle = FlatStyle.Flat, BackColor = Color.Teal, ForeColor = Color.White };
             splitInspector.Panel2.Controls.Add(btnDeploySelected);
             btnDeploySelected.Click += (s, e) => ExecuteSmartApply();
@@ -329,6 +556,7 @@ namespace pk3DS.WinForms
             splitInspector.Panel2.Controls.Add(btnShopDump);
             btnShopDump.Click += (s, e) => ExecuteShopRPTDump();
         }
+
 
         private void ExecuteShopRPTDump()
         {
@@ -456,133 +684,136 @@ namespace pk3DS.WinForms
             try {
                 LogDeployment($"Analyzing patch: {Path.GetFileName(path)}");
                 var allSheets = XlsxResearchParser.GetSheetNames(path);
+                if (allSheets.Count == 0) return;
 
-                // --- Multi-file mode: sheets named "edited code.bin", "edited bag.cro", etc. ---
-                // Each "edited X" sheet independently targets the file named X.
-                var editedSheets = allSheets
-                    .Where(s => s.StartsWith("edited ", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                // Group sheets by their target file
+                var filePatches = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
-                if (editedSheets.Count > 0)
+                // Global fallback target for this file (legacy detection)
+                string fileFallbackTarget = DetectFileLevelTarget(path);
+
+                foreach (var sheet in allSheets)
                 {
-                    foreach (var sheet in editedSheets)
-                    {
-                        string fileName = sheet.Substring("edited ".Length).Trim(); // e.g. "code.bin", "bag.cro"
-                        string full = GetTargetPath(fileName, path);
-                        if (full == null || !File.Exists(full))
-                        {
-                            LogDeployment($"[{sheet}] '{fileName}' not found — skipping.");
-                            continue;
-                        }
+                    if (IsMetadataSheet(sheet)) continue;
 
-                        LogDeployment($"[{sheet}] → {Path.GetFileName(full)}");
-                        byte[] bin = File.ReadAllBytes(full);
-                        var rows = XlsxResearchParser.ReadSheet(path, sheet);
-                        int count = ApplyPatchRows(bin, rows, fileName);
+                    string target = DetectTargetFromSheetName(sheet) ?? fileFallbackTarget;
+                    if (target == null) continue;
 
-                        if (count > 0)
-                        {
-                            if (fileName.ToLower().EndsWith(".cro"))
-                                CROUtil.UpdateHashes(bin);
-                            File.WriteAllBytes(full, bin);
-                            LogDeployment($"[{sheet}] Patched {count} bytes to {Path.GetFileName(full)}.");
-                        }
-                        else
-                        {
-                            LogDeployment($"[{sheet}] No patchable rows found.");
-                        }
-                    }
-                    UpdateHexViewFromSelection();
+                    if (!filePatches.ContainsKey(target)) filePatches[target] = new List<string>();
+                    filePatches[target].Add(sheet);
+                }
+
+                if (filePatches.Count == 0)
+                {
+                    LogDeployment("No patchable sheets or targets detected.");
                     return;
                 }
 
-                // --- Legacy single-file mode (existing behaviour) ---
-                string target = "Battle.cro";
-                var meta = XlsxResearchParser.ReadSheet(path, "Table Locations and Sizes");
-                if (path.ToLower().Contains("shop") || (actualXlsxSourcePath != null && actualXlsxSourcePath.ToLower().Contains("shop")))
+                foreach (var target in filePatches.Keys)
                 {
-                    target = "Shop.cro";
-                }
-                else
-                {
-                    if (meta.Count > 0 && meta.Any(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase))))
+                    string fullPath = GetTargetPath(target, path);
+                    if (fullPath == null || !File.Exists(fullPath))
                     {
-                        var row = meta.First(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase)));
-                        var fileKey = row.Keys.First(k => k.Equals("File", StringComparison.OrdinalIgnoreCase));
-                        target = row[fileKey];
+                        LogDeployment($"Target Not Found: '{target}' for sheets: {string.Join(", ", filePatches[target])}");
+                        continue;
                     }
-                }
-                
-                if (target == "Battle.cro") // Fallback checks if not already determined
-                {
-                    if (path.ToLower().Contains("code") || (actualXlsxSourcePath != null && actualXlsxSourcePath.ToLower().Contains("code")))
+
+                    LogDeployment($"Targeting: {Path.GetFileName(fullPath)} ({filePatches[target].Count} sheets)");
+                    byte[] bin = File.ReadAllBytes(fullPath);
+                    int totalBytes = 0;
+                    bool expanded = false;
+
+                    // Handle expansions (legacy logic - only for CROs)
+                    if (target.EndsWith(".cro", StringComparison.OrdinalIgnoreCase))
                     {
-                        target = "code.bin";
-                    }
-                    else if (path.ToLower().Contains("field"))
-                    {
-                        target = "Field.cro";
-                    }
-                    else if (path.ToLower().Contains("bag"))
-                    {
-                        target = "Bag.cro";
-                    }
-                }
-                else
-                {
-                    foreach (var s in allSheets) {
-                        var rows = XlsxResearchParser.ReadSheet(path, s);
-                        int maxCheck = Math.Min(rows.Count, 10);
-                        for (int i = 0; i < maxCheck; i++) {
-                            var r = rows[i];
-                            string offKey = r.Keys.FirstOrDefault(k => k.IndexOf("Offset", StringComparison.OrdinalIgnoreCase) >= 0 || k.IndexOf("Address", StringComparison.OrdinalIgnoreCase) >= 0);
-                            if (offKey != null && r.ContainsKey(offKey) && uint.TryParse(r[offKey].Replace("0x", "").Replace("0X", "").Trim(), System.Globalization.NumberStyles.HexNumber, null, out uint off)) {
-                                if (off > 0x180000) { target = "code.bin"; break; }
+                        var meta = XlsxResearchParser.ReadSheet(path, "Table Locations and Sizes");
+                        foreach (var r in meta) {
+                            if (r.Keys.Any(k => k.Equals("Expansion", StringComparison.OrdinalIgnoreCase)) && int.TryParse(r.Values.First(), out int sz)) {
+                                LogDeployment($"Expanding {target} by {sz} bytes...");
+                                bin = CROUtil.ExpandSegment(bin, 'c', sz);
+                                expanded = true;
                             }
                         }
-                        if (target == "code.bin") break;
+                    }
+
+                    foreach (var sheet in filePatches[target])
+                    {
+                        var rows = XlsxResearchParser.ReadSheet(path, sheet);
+                        if (rows.Count == 0) continue;
+                        totalBytes += ApplyPatchRows(bin, rows, target);
+                    }
+
+                    if (totalBytes > 0 || expanded)
+                    {
+                        if (target.ToLower().EndsWith(".cro"))
+                            CROUtil.UpdateHashes(bin);
+                        File.WriteAllBytes(fullPath, bin);
+                        LogDeployment($"Successfully patched {totalBytes} bytes to {Path.GetFileName(fullPath)}.");
+                    }
+                    else
+                    {
+                        LogDeployment($"No changes applied to {target}. Check sheet column names (Offset, Hex).");
                     }
                 }
-
-                string fullPath = GetTargetPath(target, actualXlsxSourcePath ?? path);
-                if (fullPath == null || !File.Exists(fullPath)) {
-                    LogDeployment($"Target Not Found: '{target}'. Please ensure ExeFS/RomFS is loaded.");
-                    return;
-                }
-
-                LogDeployment($"Targeting: {Path.GetFileName(fullPath)}");
-                byte[] binLegacy = File.ReadAllBytes(fullPath);
-                bool modified = false;
-
-                foreach (var r in meta) {
-                    if (r.Keys.Any(k => k.Equals("Expansion", StringComparison.OrdinalIgnoreCase)) && int.TryParse(r.Values.First(), out int sz)) {
-                        LogDeployment($"Expanding segment by {sz} bytes...");
-                        binLegacy = CROUtil.ExpandSegment(binLegacy, 'c', sz);
-                        modified = true;
-                    }
-                }
-
-                int legacyCount = 0;
-                foreach (var s in allSheets) {
-                    if (s.Equals("Table Locations and Sizes", StringComparison.OrdinalIgnoreCase) || s.Equals("Metadata", StringComparison.OrdinalIgnoreCase)) continue;
-                    var rows = XlsxResearchParser.ReadSheet(path, s);
-                    if (rows.Count == 0) continue;
-                    LogDeployment($"Sheet '{s}' columns: {string.Join(", ", rows[0].Keys)}");
-                    legacyCount += ApplyPatchRows(binLegacy, rows, target);
-                }
-
-                if (legacyCount > 0 || modified) {
-                    if (target.ToLower().EndsWith(".cro"))
-                        CROUtil.UpdateHashes(binLegacy);
-                    File.WriteAllBytes(fullPath, binLegacy);
-                    LogDeployment($"Successfully patched {legacyCount} bytes to {Path.GetFileName(fullPath)}.");
-                    UpdateHexViewFromSelection();
-                } else {
-                    LogDeployment("No changes applied. Check spreadsheet columns (Offset, Hex).");
-                }
-            } catch (Exception ex) { LogDeployment($"Critical Error: {ex.Message}"); }
+                UpdateHexViewFromSelection();
+            } catch (Exception ex) { LogDeployment($"Critical Error in {Path.GetFileName(path)}: {ex.Message}"); }
         }
 
+        private bool IsMetadataSheet(string name)
+        {
+            string[] meta = { "Table Locations and Sizes", "Metadata", "Instructions", "Readme" };
+            return meta.Any(m => m.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private string DetectTargetFromSheetName(string name)
+        {
+            string s = name.ToLower().Replace("edited ", "").Replace("patch: ", "").Replace("[", "").Replace("]", "").Trim();
+            if (s.EndsWith(".bin") || s.EndsWith(".cro")) return s;
+            if (s == "code" || s == "main") return "code.bin";
+            if (s == "shop") return "shop.cro";
+            if (s == "field") return "Field.cro";
+            if (s == "battle") return "Battle.cro";
+            if (s == "bag") return "Bag.cro";
+            return null;
+        }
+
+        private string DetectFileLevelTarget(string path)
+        {
+            // 1. Check metadata sheet
+            var meta = XlsxResearchParser.ReadSheet(path, "Table Locations and Sizes");
+            if (meta.Count > 0 && meta.Any(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase))))
+            {
+                var row = meta.First(r => r.Keys.Any(k => k.Equals("File", StringComparison.OrdinalIgnoreCase)));
+                var fileKey = row.Keys.First(k => k.Equals("File", StringComparison.OrdinalIgnoreCase));
+                return row[fileKey];
+            }
+
+            // 2. Filename heuristics
+            string fn = Path.GetFileName(path).ToLower();
+            if (fn.Contains("shop")) return "shop.cro";
+            if (fn.Contains("code")) return "code.bin";
+            if (fn.Contains("field")) return "Field.cro";
+            if (fn.Contains("battle")) return "Battle.cro";
+            if (fn.Contains("bag")) return "Bag.cro";
+
+            // 3. Content heuristics (check first few rows of first non-meta sheet for code.bin-like addresses)
+            var allSheets = XlsxResearchParser.GetSheetNames(path);
+            foreach (var s in allSheets)
+            {
+                if (IsMetadataSheet(s)) continue;
+                var rows = XlsxResearchParser.ReadSheet(path, s);
+                if (rows.Count == 0) continue;
+                
+                string offKey = rows[0].Keys.FirstOrDefault(k => k.IndexOf("Offset", StringComparison.OrdinalIgnoreCase) >= 0 || k.IndexOf("Address", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (offKey != null && uint.TryParse(rows[0][offKey].Replace("0x", "").Trim(), System.Globalization.NumberStyles.HexNumber, null, out uint off))
+                {
+                    if (off > 0x180000) return "code.bin";
+                }
+                break; // Only check one sheet
+            }
+
+            return "Battle.cro"; // Default fallback
+        }
         /// <summary>
         /// Applies all patchable rows from an xlsx sheet to <paramref name="bin"/>.
         /// Returns the total number of bytes written.
@@ -675,17 +906,343 @@ namespace pk3DS.WinForms
             return count;
         }
 
+        private void ApplyCustomPatches()
+        {
+            string patchesDir = Path.Combine(Application.StartupPath, "patches");
+            if (!Directory.Exists(patchesDir))
+            {
+                LogDeployment($"Patches directory not found at {patchesDir}. Creating it...");
+                Directory.CreateDirectory(patchesDir);
+                GenerateSamplePatch(patchesDir);
+                WinFormsUtil.Alert($"Created patches folder at:\n{patchesDir}\n\nA sample patch file has been added. Edit it or add your own .json patches!");
+                return;
+            }
+
+            var files = Directory.GetFiles(patchesDir, "*.json");
+            if (files.Length == 0)
+            {
+                LogDeployment($"No JSON patches found in {patchesDir}.");
+                GenerateSamplePatch(patchesDir);
+                WinFormsUtil.Alert($"No patches found. A sample patch has been created in:\n{patchesDir}");
+                return;
+            }
+
+            // Auto-detect game version
+            string codeBinPath = GetTargetPath("code.bin", null);
+            if (codeBinPath == null || !File.Exists(codeBinPath))
+            {
+                LogDeployment("Error: code.bin not found for patching.");
+                return;
+            }
+
+            byte[] codeData = File.ReadAllBytes(codeBinPath);
+            string detectedVersion = ResearchEngine.DetectGameVersion(codeData);
+            LogDeployment($"Detected Game Version: {detectedVersion}");
+
+            if (detectedVersion == "Unknown")
+            {
+                using var versionDialog = new Form
+                {
+                    Text = "Version Selection",
+                    Width = 340, Height = 150,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    StartPosition = FormStartPosition.CenterParent,
+                    MaximizeBox = false, MinimizeBox = false,
+                    BackColor = Color.FromArgb(30, 30, 40)
+                };
+                var lblPrompt = new Label
+                {
+                    Text = "Could not auto-detect game version.\nPlease select your version:",
+                    ForeColor = Color.White, Left = 20, Top = 15, Width = 280, Height = 40
+                };
+                var btnUS = new Button
+                {
+                    Text = "Ultra Sun (US)", Left = 40, Top = 65, Width = 115, Height = 35,
+                    FlatStyle = FlatStyle.Flat, ForeColor = Color.White,
+                    BackColor = Color.FromArgb(180, 100, 30),
+                    DialogResult = DialogResult.Yes
+                };
+                var btnUM = new Button
+                {
+                    Text = "Ultra Moon (UM)", Left = 175, Top = 65, Width = 115, Height = 35,
+                    FlatStyle = FlatStyle.Flat, ForeColor = Color.White,
+                    BackColor = Color.FromArgb(60, 60, 160),
+                    DialogResult = DialogResult.No
+                };
+                versionDialog.Controls.AddRange(new Control[] { lblPrompt, btnUS, btnUM });
+                versionDialog.AcceptButton = btnUS;
+                var vResult = versionDialog.ShowDialog();
+                detectedVersion = vResult == DialogResult.Yes ? "US" : "UM";
+                LogDeployment($"User selected: {detectedVersion}");
+            }
+
+            // ── Phase 1: Parse all patches to show in selection dialog ──
+            var parsedPatches = new List<(string filePath, UniversalPatch patch)>();
+            
+            foreach (var file in files)
+            {
+                try
+                {
+                    string json = File.ReadAllText(file);
+                    var opts = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+                    // Try UniversalPatch first
+                    UniversalPatch patch = null;
+                    try
+                    {
+                        patch = System.Text.Json.JsonSerializer.Deserialize<UniversalPatch>(json, opts);
+                        if (patch?.Patches == null || patch.Patches.Count == 0)
+                            patch = null;
+                    }
+                    catch { }
+
+                    // Fallback to legacy CustomPatch
+                    if (patch == null)
+                    {
+                        try
+                        {
+                            var legacy = System.Text.Json.JsonSerializer.Deserialize<CustomPatch>(json, opts);
+                            if (legacy?.Payloads != null && legacy.Payloads.Count > 0)
+                                patch = legacy.ToUniversal();
+                        }
+                        catch { }
+                    }
+
+                    if (patch != null)
+                        parsedPatches.Add((file, patch));
+                }
+                catch { }
+            }
+
+            if (parsedPatches.Count == 0)
+            {
+                WinFormsUtil.Alert("No valid patches found in the patches folder.");
+                return;
+            }
+
+            // ── Phase 2: Show selection dialog ──
+            using var selectDialog = new Form
+            {
+                Text = $"Select Patches to Apply ({detectedVersion})",
+                Width = 520, Height = 400,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false, MinimizeBox = false,
+                BackColor = Color.FromArgb(25, 25, 35)
+            };
+
+            var lblHeader = new Label
+            {
+                Text = $"Found {parsedPatches.Count} patches. Select which to apply:",
+                ForeColor = Color.Cyan, Left = 15, Top = 10, Width = 470, Height = 20,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            };
+
+            var clbPatches = new CheckedListBox
+            {
+                Left = 15, Top = 35, Width = 475, Height = 230,
+                BackColor = Color.FromArgb(15, 15, 22),
+                ForeColor = Color.WhiteSmoke,
+                Font = new Font("Segoe UI", 9.5f),
+                CheckOnClick = true,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            for (int i = 0; i < parsedPatches.Count; i++)
+            {
+                var (filePath, patch) = parsedPatches[i];
+                string versionNote = "";
+                if (patch.TargetVersions?.Count > 0 && !patch.TargetVersions.Contains(detectedVersion))
+                    versionNote = $" [⚠ {string.Join("/", patch.TargetVersions)} only]";
+                
+                string label = $"{patch.PatchName} — {patch.Author}{versionNote}";
+                clbPatches.Items.Add(label, versionNote == ""); // auto-check compatible patches
+            }
+
+            var lblDesc = new Label
+            {
+                Left = 15, Top = 270, Width = 475, Height = 45,
+                ForeColor = Color.LightGray, Font = new Font("Segoe UI", 8.5f),
+                Text = "Select a patch to see its description."
+            };
+
+            clbPatches.SelectedIndexChanged += (s, e) =>
+            {
+                if (clbPatches.SelectedIndex >= 0 && clbPatches.SelectedIndex < parsedPatches.Count)
+                {
+                    var desc = parsedPatches[clbPatches.SelectedIndex].patch.Description;
+                    lblDesc.Text = string.IsNullOrEmpty(desc) ? "(No description)" : desc;
+                }
+            };
+
+            var btnSelectAll = new Button
+            {
+                Text = "Select All", Left = 15, Top = 320, Width = 100, Height = 30,
+                FlatStyle = FlatStyle.Flat, ForeColor = Color.White,
+                BackColor = Color.FromArgb(50, 50, 60)
+            };
+            btnSelectAll.Click += (s, e) => { for (int i = 0; i < clbPatches.Items.Count; i++) clbPatches.SetItemChecked(i, true); };
+
+            var btnDeselectAll = new Button
+            {
+                Text = "Deselect All", Left = 120, Top = 320, Width = 100, Height = 30,
+                FlatStyle = FlatStyle.Flat, ForeColor = Color.White,
+                BackColor = Color.FromArgb(50, 50, 60)
+            };
+            btnDeselectAll.Click += (s, e) => { for (int i = 0; i < clbPatches.Items.Count; i++) clbPatches.SetItemChecked(i, false); };
+
+            var btnApply = new Button
+            {
+                Text = "Apply Selected", Left = 340, Top = 320, Width = 150, Height = 30,
+                FlatStyle = FlatStyle.Flat, ForeColor = Color.White,
+                BackColor = Color.FromArgb(0, 102, 180),
+                DialogResult = DialogResult.OK
+            };
+
+            selectDialog.Controls.AddRange(new Control[] { lblHeader, clbPatches, lblDesc, btnSelectAll, btnDeselectAll, btnApply });
+            selectDialog.AcceptButton = btnApply;
+
+            if (selectDialog.ShowDialog() != DialogResult.OK)
+                return;
+
+            // Collect selected patches
+            var selectedPatches = new List<(string filePath, UniversalPatch patch)>();
+            for (int i = 0; i < clbPatches.Items.Count; i++)
+            {
+                if (clbPatches.GetItemChecked(i))
+                    selectedPatches.Add(parsedPatches[i]);
+            }
+
+            if (selectedPatches.Count == 0)
+            {
+                LogDeployment("No patches selected.");
+                return;
+            }
+
+            // ── Phase 3: Apply selected patches ──
+            var fileData = new Dictionary<string, byte[]> { { "code.bin", codeData } };
+            
+            string[] croFiles = { "Battle.cro", "Shop.cro", "Field.cro" };
+            foreach (var cro in croFiles)
+            {
+                string croPath = GetTargetPath(cro, null);
+                if (croPath != null && File.Exists(croPath) && !fileData.ContainsKey(cro))
+                    fileData[cro] = File.ReadAllBytes(croPath);
+            }
+
+            int applied = 0;
+            int failed = 0;
+            var patchConflicts = new Dictionary<string, List<string>>();
+
+            foreach (var (filePath, patch) in selectedPatches)
+            {
+                try
+                {
+                    string fileName = Path.GetFileName(filePath);
+
+                    // Check version compatibility
+                    if (patch.TargetVersions?.Count > 0 && !patch.TargetVersions.Contains(detectedVersion))
+                    {
+                        LogDeployment($"[{fileName}] ⚠ Skipped: targets {string.Join("/", patch.TargetVersions)}, not {detectedVersion}");
+                        continue;
+                    }
+
+                    // Check for conflicts
+                    foreach (var entry in patch.Patches)
+                    {
+                        if (entry.Offsets.TryGetValue(detectedVersion, out var vOfs) && vOfs.Hooks != null)
+                        {
+                            foreach (var hook in vOfs.Hooks)
+                            {
+                                string key = $"{entry.TargetFile}:{hook}";
+                                if (!patchConflicts.ContainsKey(key))
+                                    patchConflicts[key] = new List<string>();
+                                patchConflicts[key].Add(patch.PatchName);
+                            }
+                        }
+                    }
+
+                    LogDeployment($"Applying: {patch.PatchName} by {patch.Author}");
+                    
+                    if (ResearchEngine.ApplyUniversalPatch(patch, detectedVersion, fileData, patchesDir, LogDeployment))
+                    {
+                        LogDeployment($"  ✓ Success: {patch.PatchName}");
+                        applied++;
+                    }
+                    else
+                    {
+                        LogDeployment($"  ✗ Failed: {patch.PatchName}");
+                        failed++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogDeployment($"Error applying {Path.GetFileName(filePath)}: {ex.Message}");
+                    failed++;
+                }
+            }
+
+            // Warn about conflicts
+            var conflicts = patchConflicts.Where(kv => kv.Value.Count > 1).ToList();
+            if (conflicts.Count > 0)
+            {
+                LogDeployment("⚠ PATCH CONFLICTS DETECTED:");
+                foreach (var c in conflicts)
+                    LogDeployment($"  {c.Key} written by: {string.Join(", ", c.Value)}");
+            }
+
+            // Save modified files back
+            foreach (var kvp in fileData)
+            {
+                string savePath = kvp.Key == "code.bin" ? codeBinPath : GetTargetPath(kvp.Key, null);
+                if (savePath != null)
+                    File.WriteAllBytes(savePath, kvp.Value);
+            }
+
+            LogDeployment($"━━━ Patch Summary: {applied} applied, {failed} failed, {selectedPatches.Count} selected ━━━");
+            UpdateHexViewFromSelection();
+        }
+
+        private void GenerateSamplePatch(string patchesDir)
+        {
+            var sample = new UniversalPatch
+            {
+                FormatVersion = 1,
+                PatchName = "Example NOP Patch",
+                Author = "pk3DS",
+                Description = "Sample patch that writes a NOP at the specified offset. Edit this file to create your own patches!",
+                TargetVersions = new List<string> { "US", "UM" },
+                Patches = new List<PatchEntry>
+                {
+                    new PatchEntry
+                    {
+                        TargetFile = "code.bin",
+                        Mode = "hex",
+                        Code = "00 F0 20 E3",
+                        Offsets = new Dictionary<string, VersionOffsets>
+                        {
+                            ["US"] = new VersionOffsets { InjectAt = "0x0055D000" },
+                            ["UM"] = new VersionOffsets { InjectAt = "0x0055D000" }
+                        }
+                    }
+                }
+            };
+
+            string samplePath = Path.Combine(patchesDir, "_example_patch.json");
+            var opts = new System.Text.Json.JsonSerializerOptions { WriteIndented = true, PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+            File.WriteAllText(samplePath, System.Text.Json.JsonSerializer.Serialize(sample, opts));
+            LogDeployment($"Created sample patch at {samplePath}");
+        }
+
         private void ExecuteSmartApply()
         {
             if (string.IsNullOrEmpty(selectedXlsxPath)) return;
-            string dir = Path.GetDirectoryName(actualXlsxSourcePath) ?? "";
-            if (dir.Contains("Move") || dir.Contains("Ability") || dir.Contains("Item")) {
-                detectedTypeForOverride = dir.Contains("Ability") ? "Ability" : (dir.Contains("Item") ? "Item" : "Move");
-                var dr = MessageBox.Show($"Perform Modular Link for {detectedTypeForOverride}?", "Modular Link", MessageBoxButtons.YesNo);
-                if (dr == DialogResult.Yes) { var res = WinFormsUtil.PromptInput("Link to ID:", "801"); if (int.TryParse(res, out int id)) numTargetOverride.Value = id; }
+            if (numTargetOverride.Value > 0)
+            {
+                var dr = MessageBox.Show($"Apply research as an override for ID {numTargetOverride.Value}?", "Confirm Target Override", MessageBoxButtons.YesNo);
+                if (dr != DialogResult.Yes) return;
             }
             ProcessXlsxPatch(selectedXlsxPath);
-            numTargetOverride.Value = 0;
         }
 
         private void ExecuteQuickExpand(string type)

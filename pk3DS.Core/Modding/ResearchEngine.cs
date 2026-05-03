@@ -24,13 +24,21 @@ public static class ResearchEngine
             uint entryOfs = rptTableOffset + patchRelAddr;
             if (entryOfs + 12 > data.Length) return -1;
 
+            // RPT Entry: [PatchOfs(4), Type(2), Segment(2), Addend(4)]
+            // Type is ushort at +4, Segment is ushort at +6
+            // In USUM Shop.cro: [Type(2), Seg(2)] = [02 01, 00 00] -> Segment 1? 
+            // Wait, I found Segment ID at +5 (high byte of ushort at +4) in research.
             int targetSeg = data[entryOfs + 5];
             uint pointedAt = BitConverter.ToUInt32(data, (int)(entryOfs + 8));
 
-            uint segmentTableOffset = BitConverter.ToUInt32(data, 0x84);
-            // The segment table at 0x84 (or 0xC8 pointer) has 12-byte entries.
-            // Segment 0 base is at +8, Segment 1 at +20, etc.
-            int baseFieldOfs = (int)segmentTableOffset + 8 + (targetSeg * 12);
+            uint segmentTableOffset = BitConverter.ToUInt32(data, 0xC8);
+            if (segmentTableOffset == 0 || segmentTableOffset > data.Length)
+            {
+                // Fallback to user's suggested 0x84 + 8
+                segmentTableOffset = BitConverter.ToUInt32(data, 0x84) + 8;
+            }
+
+            int baseFieldOfs = (int)segmentTableOffset + (targetSeg * 12);
             if (baseFieldOfs + 4 > data.Length) return -1;
 
             uint dataTableOffset = BitConverter.ToUInt32(data, baseFieldOfs);
@@ -47,14 +55,31 @@ public static class ResearchEngine
             uint entryOfs = rptTableOffset + patchRelAddr;
             if (entryOfs + 12 > data.Length) return false;
 
-            int targetSeg = data[entryOfs + 5];
-            uint segmentTableOffset = BitConverter.ToUInt32(data, 0x84);
-            int baseFieldOfs = (int)segmentTableOffset + 8 + (targetSeg * 12);
-            if (baseFieldOfs + 4 > data.Length) return false;
+            // Automatically detect segment
+            uint segmentTableOffset = BitConverter.ToUInt32(data, 0xC8);
+            if (segmentTableOffset == 0 || segmentTableOffset > data.Length)
+                segmentTableOffset = BitConverter.ToUInt32(data, 0x84) + 8;
 
-            uint dataTableOffset = BitConverter.ToUInt32(data, baseFieldOfs);
+            uint[] starts = new uint[4];
+            for (int i = 0; i < 4; i++)
+                starts[i] = BitConverter.ToUInt32(data, (int)(segmentTableOffset + i * 12));
+
+            int targetSeg = -1;
+            for (int s = 2; s >= 0; s--) // Data, then Rodata, then Code
+            {
+                if (newTargetAbs >= starts[s])
+                {
+                    targetSeg = s;
+                    break;
+                }
+            }
+            if (targetSeg == -1) return false;
+
+            uint dataTableOffset = starts[targetSeg];
             uint newPointedAt = newTargetAbs - dataTableOffset;
+            
             BitConverter.GetBytes(newPointedAt).CopyTo(data, (int)(entryOfs + 8));
+            data[entryOfs + 5] = (byte)targetSeg; // Update the segment ID in the RPT entry
             return true;
         }
         catch { return false; }
@@ -720,9 +745,264 @@ public static class ResearchEngine
 
     public static byte[] GetBInstruction(long from, long to)
     {
-        int diff = (int)(to - from - 8) >> 2;
-        byte[] b = BitConverter.GetBytes(diff);
-        b[3] = 0xEA; // B
-        return b;
+        return GenerateHookInstruction((uint)from, (uint)to, "b");
+    }
+
+    /// <summary>
+    /// Generates either a B (branch) or BL (branch-with-link) ARM instruction.
+    /// </summary>
+    public static byte[] GenerateHookInstruction(uint fromAddress, uint toAddress, string type)
+    {
+        int diff = (int)toAddress - (int)(fromAddress + 8);
+        uint offset24 = (uint)(diff >> 2) & 0x00FFFFFF;
+        uint opcode = type.ToLowerInvariant() == "bl" ? 0xEB000000u : 0xEA000000u;
+        return BitConverter.GetBytes(opcode | offset24);
+    }
+
+    /// <summary>
+    /// Searches for a contiguous block of zero bytes suitable for code injection.
+    /// </summary>
+    public static int FindFreeSpace(byte[] data, int requiredSize, int searchStart = 0x55D000, int alignment = 4)
+    {
+        for (int i = searchStart; i < data.Length - requiredSize; i += alignment)
+        {
+            bool empty = true;
+            for (int j = 0; j < requiredSize; j++)
+            {
+                if (data[i + j] != 0x00) { empty = false; break; }
+            }
+            if (empty) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>
+    /// Converts a hex string (space/newline separated) to a byte array.
+    /// </summary>
+    public static byte[] HexToBytes(string hexString)
+    {
+        string cleaned = hexString.Replace(" ", "").Replace("\n", "").Replace("\r", "").Replace("\t", "");
+        if (cleaned.Length % 2 != 0 || cleaned.Length == 0) return null;
+        byte[] result = new byte[cleaned.Length / 2];
+        for (int i = 0; i < result.Length; i++)
+            result[i] = Convert.ToByte(cleaned.Substring(i * 2, 2), 16);
+        return result;
+    }
+
+    /// <summary>
+    /// Assembles ARM assembly text into machine code using Keystone.
+    /// Returns null on failure.
+    /// </summary>
+    public static byte[] AssembleARM(string asmText, uint baseAddress = 0)
+    {
+        try
+        {
+            using var ks = new Engine(Keystone.Architecture.ARM, Mode.ARM);
+            var result = ks.Assemble(asmText, baseAddress);
+            return result?.Buffer;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// Auto-detects whether code.bin belongs to Ultra Sun (US) or Ultra Moon (UM).
+    /// Returns "US", "UM", or "Unknown".
+    /// </summary>
+    public static string DetectGameVersion(byte[] codeData)
+    {
+        // US and UM differ at known function offsets. The Café Relearner function is at:
+        //   US: 0x341658   UM: 0x3417D8
+        // We check for a known instruction (PUSH {R4-R8, LR} = 0xE92D01F0) at each offset.
+        byte[] pushSig = { 0xF0, 0x01, 0x2D, 0xE9 }; // PUSH {R4-R8, LR} little-endian
+
+        if (codeData.Length > 0x3417DC)
+        {
+            // Check UM offset first (more common in USUM community)
+            if (codeData[0x3417D8] == pushSig[0] && codeData[0x3417D9] == pushSig[1]
+                && codeData[0x3417DA] == pushSig[2] && codeData[0x3417DB] == pushSig[3])
+                return "UM";
+
+            if (codeData[0x341658] == pushSig[0] && codeData[0x341659] == pushSig[1]
+                && codeData[0x34165A] == pushSig[2] && codeData[0x34165B] == pushSig[3])
+                return "US";
+        }
+
+        // Fallback: check file size differences (UM code.bin is typically slightly larger)
+        // US ~5,857,280 bytes, UM ~5,857,792 bytes (varies by patch state)
+        // This is a weak heuristic, prefer the signature check above.
+        return "Unknown";
+    }
+
+    // ─── Universal Patch System ───────────────────────────────────────
+
+    /// <summary>
+    /// Applies a universal patch to the provided file data dictionary.
+    /// </summary>
+    /// <param name="patch">The parsed universal patch.</param>
+    /// <param name="version">Game version: "US" or "UM".</param>
+    /// <param name="fileData">Dictionary of target filename → byte[] data. Modified in place.</param>
+    /// <param name="patchesDir">Path to the patches/ folder (for asm_file resolution).</param>
+    /// <param name="log">Optional logging callback.</param>
+    /// <returns>True if all patch entries applied successfully.</returns>
+    public static bool ApplyUniversalPatch(
+        UniversalPatch patch, 
+        string version,
+        Dictionary<string, byte[]> fileData,
+        string patchesDir = null,
+        Action<string> log = null)
+    {
+        bool allSuccess = true;
+        log ??= _ => { };
+
+        foreach (var entry in patch.Patches)
+        {
+            // Resolve version-specific offsets
+            if (!entry.Offsets.TryGetValue(version, out var vOfs))
+            {
+                log($"  Skipping: no offsets defined for version {version}");
+                continue;
+            }
+
+            // Get the target file data
+            if (!fileData.TryGetValue(entry.TargetFile, out byte[] targetData))
+            {
+                log($"  Skipping: {entry.TargetFile} not loaded");
+                continue;
+            }
+
+            // Resolve code bytes based on mode
+            byte[] codeBytes = null;
+            switch (entry.Mode?.ToLowerInvariant())
+            {
+                case "hex":
+                    codeBytes = HexToBytes(entry.Code);
+                    break;
+
+                case "asm":
+                    uint baseAddr = 0;
+                    if (!string.IsNullOrEmpty(entry.BaseAddress))
+                        baseAddr = Convert.ToUInt32(entry.BaseAddress.Replace("0x", "").Replace("0X", ""), 16);
+                    codeBytes = AssembleARM(entry.Code, baseAddr);
+                    if (codeBytes == null)
+                        log($"  ASM assembly failed for entry targeting {entry.TargetFile}");
+                    break;
+
+                case "asm_file":
+                    if (!string.IsNullOrEmpty(patchesDir) && !string.IsNullOrEmpty(entry.AsmFilePath))
+                    {
+                        string asmPath = Path.Combine(patchesDir, entry.AsmFilePath);
+                        if (File.Exists(asmPath))
+                        {
+                            string asmText = File.ReadAllText(asmPath);
+                            uint fBase = 0;
+                            if (!string.IsNullOrEmpty(entry.BaseAddress))
+                                fBase = Convert.ToUInt32(entry.BaseAddress.Replace("0x", "").Replace("0X", ""), 16);
+                            codeBytes = AssembleARM(asmText, fBase);
+                        }
+                        else
+                        {
+                            log($"  ASM file not found: {asmPath}");
+                        }
+                    }
+                    break;
+
+                default:
+                    log($"  Unknown mode: {entry.Mode}");
+                    break;
+            }
+
+            if (codeBytes == null || codeBytes.Length == 0)
+            {
+                allSuccess = false;
+                continue;
+            }
+
+            // Determine injection address
+            int injectAt;
+            if (string.IsNullOrEmpty(vOfs.InjectAt) || vOfs.InjectAt.ToLowerInvariant() == "auto")
+            {
+                injectAt = FindFreeSpace(targetData, codeBytes.Length);
+                if (injectAt < 0)
+                {
+                    log($"  No free space found for {codeBytes.Length} bytes in {entry.TargetFile}");
+                    allSuccess = false;
+                    continue;
+                }
+                log($"  Auto-allocated at 0x{injectAt:X}");
+            }
+            else
+            {
+                injectAt = Convert.ToInt32(vOfs.InjectAt.Replace("0x", "").Replace("0X", ""), 16);
+            }
+
+            // Write the code
+            if (injectAt + codeBytes.Length > targetData.Length)
+            {
+                log($"  Injection at 0x{injectAt:X} would overflow {entry.TargetFile} (size {targetData.Length})");
+                allSuccess = false;
+                continue;
+            }
+            Buffer.BlockCopy(codeBytes, 0, targetData, injectAt, codeBytes.Length);
+            log($"  Wrote {codeBytes.Length} bytes at 0x{injectAt:X} in {entry.TargetFile}");
+
+            // Apply hooks (branch repoints)
+            if (vOfs.Hooks != null)
+            {
+                foreach (string hookSpec in vOfs.Hooks)
+                {
+                    string spec = hookSpec.Trim();
+                    string hookType = "bl"; // default
+                    string addrStr = spec;
+
+                    if (spec.StartsWith("bl:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hookType = "bl";
+                        addrStr = spec.Substring(3);
+                    }
+                    else if (spec.StartsWith("b:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        hookType = "b";
+                        addrStr = spec.Substring(2);
+                    }
+
+                    addrStr = addrStr.Replace("0x", "").Replace("0X", "").Trim();
+                    if (!int.TryParse(addrStr, System.Globalization.NumberStyles.HexNumber, null, out int hookOfs))
+                    {
+                        log($"  Invalid hook address: {hookSpec}");
+                        continue;
+                    }
+
+                    if (hookOfs >= 0 && hookOfs < targetData.Length - 4)
+                    {
+                        byte[] hookBytes = GenerateHookInstruction((uint)hookOfs, (uint)injectAt, hookType);
+                        Buffer.BlockCopy(hookBytes, 0, targetData, hookOfs, 4);
+                        log($"  Hooked {hookType.ToUpper()} at 0x{hookOfs:X} → 0x{injectAt:X}");
+                    }
+                    else
+                    {
+                        log($"  Hook offset 0x{hookOfs:X} out of bounds");
+                    }
+                }
+            }
+        }
+
+        return allSuccess;
+    }
+
+    /// <summary>
+    /// Legacy compatibility: applies old-format CustomPatch by converting to UniversalPatch.
+    /// </summary>
+    public static bool ApplyCustomPatch(byte[] codeData, CustomPatch patch)
+    {
+        var universal = patch.ToUniversal();
+        var fileData = new Dictionary<string, byte[]> { { "code.bin", codeData } };
+        return ApplyUniversalPatch(universal, "UM", fileData);
+    }
+
+    private static uint GenerateBLInstruction(uint currentAddress, uint targetAddress)
+    {
+        int offset = (int)targetAddress - (int)(currentAddress + 8);
+        uint offset24 = (uint)(offset >> 2) & 0x00FFFFFF;
+        return 0xEB000000 | offset24;
     }
 }

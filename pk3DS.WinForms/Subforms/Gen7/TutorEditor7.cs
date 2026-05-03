@@ -16,6 +16,9 @@ public partial class TutorEditor7 : Form
     private int ofs_counts;
     private byte[] len_BPTutor;
 
+    private const int SafeZoneBase = 0x5800; 
+    private const int SafeZoneSize = 2048;
+
     public TutorEditor7()
     {
         if (!File.Exists(CROPath))
@@ -37,17 +40,11 @@ public partial class TutorEditor7 : Form
 
     private void LoadShopOffsets()
     {
-        // Try RPT first (Full Compatibility Mode)
-        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
-        if (rpt_sizeBase != -1)
+        // Use verified USUM RPT key for tutor counts
+        ofs_counts = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
+        if (ofs_counts != -1)
         {
-            ofs_counts = rpt_sizeBase;
-            byte[] counts = data.Skip(rpt_sizeBase).Take(10).ToArray();
-            len_BPTutor = new byte[4];
-            len_BPTutor[0] = 16; // Melemele (Sub-section of Index 9)
-            len_BPTutor[1] = counts[0]; // Akala
-            len_BPTutor[2] = counts[1]; // Ula'ula
-            len_BPTutor[3] = counts[2]; // Poni
+            len_BPTutor = data.Skip(ofs_counts).Take(4).ToArray();
             Text = "Tutor Editor (RPT Mode)";
             return;
         }
@@ -162,6 +159,26 @@ public partial class TutorEditor7 : Form
         GetListBPMove();
     }
 
+    private int FindSafeSpace(int bytes)
+    {
+        // Simple allocator: find first block of 0xFFFFs (unallocated/padding) in the safe zone
+        for (int i = 0; i <= SafeZoneSize - bytes; i += 2)
+        {
+            bool free = true;
+            for (int j = 0; j < bytes; j += 2)
+            {
+                ushort val = BitConverter.ToUInt16(data, SafeZoneBase + i + j);
+                if (val != 0xFFFF && val != 0x0000)
+                {
+                    free = false;
+                    break;
+                }
+            }
+            if (free) return SafeZoneBase + i;
+        }
+        return -1;
+    }
+
     private void GetListBPMove()
     {
         if (entryBPMove < 0 || entryBPMove >= len_BPTutor.Length) return;
@@ -189,20 +206,31 @@ public partial class TutorEditor7 : Form
 
     private void SetListBPMove()
     {
+        if (entryBPMove < 0 || entryBPMove >= len_BPTutor.Length) return;
         int count = dgvmv.Rows.Count;
         int tutorOfs = GetTutorOffset(entryBPMove);
-        if (tutorOfs == -1) return;
+        if (tutorOfs <= 0) return;
 
-        if (len_BPTutor == null || entryBPMove < 0 || entryBPMove >= len_BPTutor.Length) return;
-
-        // Expansion! (Standard logic)
         if (count > len_BPTutor[entryBPMove])
         {
-            int newSize = count * 4;
-            int newOfs = data.Length;
-            data = CROUtil.ExpandSegment(data, 'd', newSize);
-            ResearchEngine.RepointRelocationByOffset(data, TutorPatchAddrs[entryBPMove], (uint)newOfs);
-            tutorOfs = newOfs;
+            // Expansion into Mega Safe Zone
+            int required = count * 4; 
+            int freeOfs = FindSafeSpace(required);
+            if (freeOfs == -1)
+            {
+                WinFormsUtil.Alert("No space left in Safe Zone for expansion.");
+                return;
+            }
+            
+            // Wipe the rest of the zone with markers on first expansion if needed
+            if (BitConverter.ToUInt16(data, SafeZoneBase) == 0)
+            {
+                for (int i = 0; i < SafeZoneSize; i += 2)
+                    BitConverter.GetBytes((ushort)0xFFFF).CopyTo(data, SafeZoneBase + i);
+            }
+
+            ResearchEngine.RepointRelocationByOffset(data, TutorPatchAddrs[entryBPMove], (uint)freeOfs);
+            tutorOfs = freeOfs;
         }
 
         for (int i = 0; i < count; i++)
@@ -211,28 +239,11 @@ public partial class TutorEditor7 : Form
             uint price = 4; uint.TryParse(dgvmv.Rows[i].Cells[2].Value.ToString(), out price);
 
             int m_ofs = tutorOfs + (i * 4);
-            if (m_ofs + 4 > data.Length) break;
-
-            Array.Copy(BitConverter.GetBytes((ushort)move), 0, data, m_ofs, 2);
-            Array.Copy(BitConverter.GetBytes((ushort)price), 0, data, m_ofs + 2, 2);
+            BitConverter.GetBytes((ushort)move).CopyTo(data, m_ofs);
+            BitConverter.GetBytes((ushort)price).CopyTo(data, m_ofs + 2);
         }
 
-        int rpt_sizeBase = ResearchEngine.GetRelocationPatchTarget(data, 0x03C);
-        if (rpt_sizeBase != -1)
-        {
-            if (entryBPMove == 1) data[rpt_sizeBase + 0] = (byte)count;
-            else if (entryBPMove == 2) data[rpt_sizeBase + 1] = (byte)count;
-            else if (entryBPMove == 3) data[rpt_sizeBase + 2] = (byte)count;
-            else if (entryBPMove == 0)
-            {
-                // Melemele is complex because it shares Index 9. 
-                // We'll update len_BPItem[6] logic in MartEditor later if needed.
-            }
-        }
-        else
-        {
-            data[ofs_counts + entryBPMove] = (byte)count;
-        }
+        data[ofs_counts + entryBPMove] = (byte)count;
         len_BPTutor[entryBPMove] = (byte)count;
     }
 
@@ -263,7 +274,7 @@ public partial class TutorEditor7 : Form
         byte[] d = File.ReadAllBytes(croPath);
         
         // Use RPT to find tutor counts
-        int c_ofs = ResearchEngine.GetRelocationPatchTarget(d, 0x3C);
+        int c_ofs = ResearchEngine.GetRelocationPatchTarget(d, 0x03C);
         if (c_ofs == -1) c_ofs = 0x52D2; // Fallback
 
         int[] lengths = d.Skip(c_ofs).Take(4).Select(b => (int)b).ToArray();

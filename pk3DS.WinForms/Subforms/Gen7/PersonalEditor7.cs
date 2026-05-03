@@ -39,8 +39,18 @@ public partial class PersonalEditor7 : Form
         ];
         ev_boxes = [TB_HPEVs, TB_ATKEVs, TB_DEFEVs, TB_SPEEVs, TB_SPAEVs, TB_SPDEVs];
         rstat_boxes = [CHK_rHP, CHK_rATK, CHK_rDEF, CHK_rSPA, CHK_rSPD, CHK_rSPE];
-        files = infiles;
-        originalFiles = infiles.Select(a => (byte[])a.Clone()).ToArray(); // Snapshots YOUR custom ROM data
+        // Handle Master Table (common in Gen 7 Personal GARCs)
+        if (infiles.Length > 1 && infiles[^1].Length > infiles[0].Length)
+        {
+            // The last file is a master table (concatenation of all others)
+            // Strip it so it doesn't get resorted into species data
+            files = infiles.Take(infiles.Length - 1).ToArray();
+        }
+        else
+        {
+            files = infiles;
+        }
+        originalFiles = files.Select(a => (byte[])a.Clone()).ToArray(); // Snapshots YOUR custom ROM data
         
         foreach (var tb in byte_boxes) tb.TextAlign = HorizontalAlignment.Center;
         foreach (var tb in ev_boxes) tb.TextAlign = HorizontalAlignment.Center;
@@ -104,7 +114,7 @@ public partial class PersonalEditor7 : Form
 
     private readonly string[] items = Main.Config.GetText(TextName.ItemNames);
     private readonly string[] moves = Main.Config.GetText(TextName.MoveNames);
-    private readonly string[] species = Main.Config.GetText(TextName.SpeciesNames);
+    private string[] species = Main.Config.GetText(TextName.SpeciesNames);
     private readonly string[] abilities = Main.Config.GetText(TextName.AbilityNames);
     //private readonly string[] forms = Main.Config.GetText(TextName.Forms);
     private readonly string[] types = Main.Config.GetText(TextName.Types);
@@ -171,33 +181,56 @@ public partial class PersonalEditor7 : Form
         for (int i = 0; i < entryNames.Length; i++)
             CB_Species.Items.Add($"{entryNames[i]} - {i:000}");
 
+        CB_Species.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_Species.AutoCompleteSource = AutoCompleteSource.ListItems;
+
         foreach (ComboBox cb in helditem_boxes)
         {
+            cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cb.AutoCompleteSource = AutoCompleteSource.ListItems;
             cb.Items.AddRange(items);
         }
 
         CB_ZItem.Items.AddRange(items);
+        CB_ZItem.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_ZItem.AutoCompleteSource = AutoCompleteSource.ListItems;
+
         CB_ZBaseMove.Items.AddRange(moves);
+        CB_ZBaseMove.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_ZBaseMove.AutoCompleteSource = AutoCompleteSource.ListItems;
+
         CB_ZMove.Items.AddRange(moves);
+        CB_ZMove.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_ZMove.AutoCompleteSource = AutoCompleteSource.ListItems;
 
         foreach (ComboBox cb in ability_boxes)
         {
+            cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cb.AutoCompleteSource = AutoCompleteSource.ListItems;
             cb.Items.AddRange(abilities);
         }
 
         foreach (ComboBox cb in typing_boxes)
         {
+            cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cb.AutoCompleteSource = AutoCompleteSource.ListItems;
             cb.Items.AddRange(types);
         }
 
         foreach (ComboBox cb in eggGroup_boxes)
         {
+            cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            cb.AutoCompleteSource = AutoCompleteSource.ListItems;
             cb.Items.AddRange(eggGroups);
         }
 
         CB_Color.Items.AddRange(colors);
+        CB_Color.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_Color.AutoCompleteSource = AutoCompleteSource.ListItems;
 
         CB_EXPGroup.Items.AddRange(EXPGroups);
+        CB_EXPGroup.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        CB_EXPGroup.AutoCompleteSource = AutoCompleteSource.ListItems;
 
         if (Main.Config.USUM)
         {
@@ -227,25 +260,71 @@ public partial class PersonalEditor7 : Form
     private void B_InsertForm_Click(object sender, EventArgs e)
     {
         if (entry < 1) return;
+        if (entry > -1) SaveEntry(); // save current entry before insertion
         
-        var form = new FormInsertion(files, evolutionFiles ?? new byte[files.Length][], learnsets ?? new byte[files.Length][], eggmoves ?? new byte[files.Length][], species, entryNames, baseForms, formVal);
+        using var form = new FormInsertion(files, evolutionFiles ?? new byte[files.Length][], learnsets ?? new byte[files.Length][], eggmoves ?? new byte[files.Length][], species, entryNames, baseForms, formVal);
         WinFormsUtil.ApplyTheme(form);
-        if (form.ShowDialog() == DialogResult.OK)
-        {
-            files = form.ResultPersonal;
-            evolutionFiles = form.ResultEvolution;
-            learnsets = form.ResultLevelUp;
-            eggmoves = form.ResultEggMoves;
-            
-            // Re-calculate the list based on updated files
-            Main.Config.Personal.Table = files.Select(f => PersonalTable.GetInfo(f, Main.Config.Version)).ToArray();
-            var altForms = Main.Config.Personal.GetFormList(species, Main.Config.MaxSpeciesID);
-            entryNames = Main.Config.Personal.GetPersonalEntryList(altForms, species, Main.Config.MaxSpeciesID, out baseForms, out formVal);
+        if (form.ShowDialog() != DialogResult.OK)
+            return;
 
-            // Re-setup UI and variables
-            Setup();
-            WinFormsUtil.Alert("Form insertion successful! UI has been refreshed.");
+        // ── Phase 1: Update in-memory arrays ──
+        files = form.ResultPersonal;
+        evolutionFiles = form.ResultEvolution;
+        learnsets = form.ResultLevelUp;
+        eggmoves = form.ResultEggMoves;
+
+        // ── Phase 2: Persist to GARCs immediately ──
+        try
+        {
+            // Save Personal GARC (with reconstructed Master Table)
+            byte[][] personalWithTable = [.. files, RebuildMasterTable(files)];
+            Main.Config.GARCPersonal.Files = personalWithTable;
+            Main.Config.GARCPersonal.Save();
+
+            // Save Evolution GARC
+            var evoGarc = Main.Config.GetGARCData("evolution");
+            evoGarc.Files = evolutionFiles;
+            evoGarc.Save();
+
+            // Save Learnset GARC
+            Main.Config.GARCLearnsets.Files = learnsets;
+            Main.Config.GARCLearnsets.Save();
+
+            // Save EggMove GARC
+            var eggGarc = Main.Config.GetGARCData("eggmove");
+            if (eggGarc != null)
+            {
+                eggGarc.Files = eggmoves;
+                eggGarc.Save();
+            }
+
+            // Memory cleanup after heavy GARC operations
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
         }
+        catch (Exception ex)
+        {
+            WinFormsUtil.Error("Failed to save GARCs after insertion.", ex.Message);
+        }
+
+        // ── Phase 3: Rebuild internal tables (like reference tool's update_species_list) ──
+        Main.Config.InitializePersonal();
+        Main.Config.InitializeLearnset();
+        
+        // Refresh names reference from config (it was expanded in FormInsertion)
+        species = Main.Config.GetText(TextName.SpeciesNames);
+
+        // Rebuild the global species stat table from the updated personal files
+        Main.Config.Personal.Table = files.Select(f => PersonalTable.GetInfo(f, Main.Config.Version)).ToArray();
+        var altForms = Main.Config.Personal.GetFormList(species, Main.Config.MaxSpeciesID);
+        entryNames = Main.Config.Personal.GetPersonalEntryList(altForms, species, Main.Config.MaxSpeciesID, out baseForms, out formVal);
+
+        // ── Phase 4: Resort if requested ──
+        if (form.ShouldResort) ResortFileStructure();
+
+        // ── Phase 5: Refresh the UI ──
+        Setup();
+        WinFormsUtil.Alert("Form insertion complete!", "All GARCs saved. Internal tables refreshed.");
     }
 
     private void RefreshSpeciesList()
@@ -309,18 +388,52 @@ public partial class PersonalEditor7 : Form
         eggmoves = Reorder(eggmoves, order);
         evolutionFiles = Reorder(evolutionFiles, order);
 
-        // 3. Sync External GARCs (USUM Specific)
-        string romfs = Main.Config.RomFS;
-        string modelPath = Path.Combine(romfs, "a", "0", "9", "4");
-        string animPath = Path.Combine(romfs, "a", "0", "9", "5");
-        string cryPath = Path.Combine(romfs, "a", "0", "1", "2");
-        string spritePath = Path.Combine(romfs, "a", "0", "9", "1");
+        // 3. Realignment: All form pointers must be updated to their new indices
+        for (int i = 0; i < files.Length; i++)
+        {
+            int oldPtr = BitConverter.ToUInt16(files[i], 0x1C);
+            if (oldPtr == 0) continue;
+            
+            // Map old pointer to new pointer using oldToNew table
+            int newPtr = oldToNew[oldPtr];
+            byte[] ptrBytes = BitConverter.GetBytes((ushort)newPtr);
+            files[i][0x1C] = ptrBytes[0];
+            files[i][0x1D] = ptrBytes[1];
+        }
 
-        SyncGARC(modelPath, order);
-        SyncGARC(animPath, order);
-        SyncGARC(cryPath, order);
-        SyncGARC(spritePath, order);
+        // 4. Update Global Config and Refresh Info Objects
+        Main.Config.Personal.Table = files.Select(f => PersonalTable.GetInfo(f, Main.Config.Version)).ToArray();
+        
+        // Refresh names and base forms logic
+        var altForms = Main.Config.Personal.GetFormList(species, Main.Config.MaxSpeciesID);
+        entryNames = Main.Config.Personal.GetPersonalEntryList(altForms, species, Main.Config.MaxSpeciesID, out baseForms, out formVal);
 
+        // 5. Persist resorted data to disk
+        try
+        {
+            byte[][] personalWithTable = [.. files, RebuildMasterTable(files)];
+            Main.Config.GARCPersonal.Files = personalWithTable;
+            Main.Config.GARCPersonal.Save();
+
+            Main.Config.GARCLearnsets.Files = learnsets;
+            Main.Config.GARCLearnsets.Save();
+
+            var eggGarc = Main.Config.GetGARCData("eggmove");
+            if (eggGarc != null) { eggGarc.Files = eggmoves; eggGarc.Save(); }
+
+            var evoGarc = Main.Config.GetGARCData("evolution");
+            if (evoGarc != null) { evoGarc.Files = evolutionFiles; evoGarc.Save(); }
+            
+            // Memory cleanup after heavy resort
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+        }
+        catch (Exception ex)
+        {
+            WinFormsUtil.Error("Failed to save resorted GARCs.", ex.Message);
+        }
+
+        Setup(); // Refresh UI with new order
         WinFormsUtil.Alert("Global resort and repointing complete. All GARCs have been synchronized.");
     }
 
@@ -1126,5 +1239,17 @@ public partial class PersonalEditor7 : Form
     {
         if (entry > -1) SaveEntry();
         RandSettings.SetFormSettings(this, TP_Randomizer.Controls);
+    }
+
+    private byte[] RebuildMasterTable(byte[][] entries)
+    {
+        if (entries == null || entries.Length == 0) return [];
+        int len = entries[0].Length;
+        byte[] table = new byte[entries.Length * len];
+        for (int i = 0; i < entries.Length; i++)
+        {
+            entries[i].CopyTo(table, i * len);
+        }
+        return table;
     }
 }

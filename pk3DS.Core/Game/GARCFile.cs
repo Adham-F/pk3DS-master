@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using pk3DS.Core.CTR;
 
@@ -22,19 +22,22 @@ public class LazyGARCFile(GARC.LazyGARC g, GARCReference r, string p)
 {
     public int FileCount => g.FileCount;
 
+    private byte[][] _cachedFiles;
     public byte[][] Files
     {
         get
         {
-            byte[][] data = new byte[FileCount][];
-            for (int i = 0; i < data.Length; i++)
-                data[i] = g[i];
-            return data;
+            if (_cachedFiles != null) return _cachedFiles;
+            _cachedFiles = new byte[FileCount][];
+            for (int i = 0; i < _cachedFiles.Length; i++)
+                _cachedFiles[i] = g[i];
+            return _cachedFiles;
         }
         set
         {
             for (int i = 0; i < value.Length; i++)
                 g[i] = value[i];
+            _cachedFiles = value;
         }
     }
 

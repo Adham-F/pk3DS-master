@@ -688,15 +688,16 @@ public static class GARC
             return data;
         }
 
-        // Returns all files (excluding language vectorized)
+        private byte[][] _files;
         public byte[][] Files
         {
             get
             {
-                byte[][] data = new byte[FileCount][];
-                for (int i = 0; i < data.Length; i++)
-                    data[i] = GetFile(i);
-                return data;
+                if (_files != null) return _files;
+                _files = new byte[FileCount][];
+                for (int i = 0; i < _files.Length; i++)
+                    _files[i] = GetFile(i);
+                return _files;
             }
             set
             {
@@ -706,6 +707,7 @@ public static class GARC
                 var ng = PackGARC(value, garc.Version, (int)garc.ContentPadToNearest);
                 garc = ng.garc;
                 Data = ng.Data;
+                _files = value;
             }
         }
     }

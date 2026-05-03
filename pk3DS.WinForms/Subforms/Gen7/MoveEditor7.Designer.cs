@@ -122,6 +122,7 @@ partial class MoveEditor7
         this.B_VanillaLog = new System.Windows.Forms.Button();
         this.B_CopyData = new System.Windows.Forms.Button();
         this.B_PasteData = new System.Windows.Forms.Button();
+        this.L_SaveReminder = new System.Windows.Forms.Label();
 
         ((System.ComponentModel.ISupportInitialize)(this.NUD_HitMax)).BeginInit();
         ((System.ComponentModel.ISupportInitialize)(this.NUD_HitMin)).BeginInit();
@@ -941,6 +942,7 @@ partial class MoveEditor7
         this.GB_Expansion.Controls.Add(this.B_ExportTxt);
         this.GB_Expansion.Controls.Add(this.B_ImportTxt);
         this.GB_Expansion.Controls.Add(this.B_SaveExport);
+        this.GB_Expansion.Controls.Add(this.L_SaveReminder);
         this.GB_Expansion.Controls.Add(this.B_VanillaLog);
         this.GB_Expansion.Location = new System.Drawing.Point(720, 5);
         this.GB_Expansion.Name = "GB_Expansion";
@@ -970,6 +972,16 @@ partial class MoveEditor7
         this.B_SaveExport.Text = "Save / Export to ROM";
         this.B_SaveExport.UseVisualStyleBackColor = false;
         this.B_SaveExport.Click += new System.EventHandler(this.B_SaveExport_Click);
+        // 
+        // L_SaveReminder
+        // 
+        this.L_SaveReminder.AutoSize = false;
+        this.L_SaveReminder.Location = new System.Drawing.Point(165, 75);
+        this.L_SaveReminder.Name = "L_SaveReminder";
+        this.L_SaveReminder.Size = new System.Drawing.Size(145, 40);
+        this.L_SaveReminder.TabIndex = 118;
+        this.L_SaveReminder.Text = "New moves will autosave, but click this button to actually save them to the game!";
+        this.L_SaveReminder.TextAlign = System.Drawing.ContentAlignment.TopCenter;
         // 
         // groupBox1
         // 
@@ -1398,4 +1410,5 @@ partial class MoveEditor7
     private System.Windows.Forms.Button B_RenameFlags;
     private System.Windows.Forms.Button B_CopyData;
     private System.Windows.Forms.Button B_PasteData;
-    }
+    private System.Windows.Forms.Label L_SaveReminder;
+}

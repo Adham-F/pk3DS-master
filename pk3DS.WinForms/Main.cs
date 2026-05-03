@@ -1319,10 +1319,21 @@ namespace pk3DS.WinForms;
                     Invoke(() => { var ed = new PersonalEditor7(d, l, eg, ev); WinFormsUtil.ApplyTheme(ed); HandleFriendship(1); ed.ShowDialog(); });
                     break;
             }
-            // Set Master Table back
+
+            // Refresh local references after editor closes (important if forms were added)
+            d = Config.GARCPersonal.Files;
+            l = Config.GARCLearnsets.Files;
+            eg = Config.GetGARCData("eggmove").Files;
+
+            // Set Master Table back (Safely resize if needed)
             if (d.Length > 1)
             {
                 int len = d[0].Length;
+                int tableSize = (d.Length - 1) * len;
+                if (d[^1].Length != tableSize)
+                {
+                    d[^1] = new byte[tableSize];
+                }
                 for (int i = 0; i < d.Length - 1; i++)
                     d[i].CopyTo(d[^1], i * len);
             }
@@ -1336,8 +1347,12 @@ namespace pk3DS.WinForms;
             gl.Save();
             Config.InitializeLearnset();
             
-            ge.Files = eg;
-            ge.Save();
+            var ge_new = Config.GetGARCData("eggmove");
+            if (ge_new != null)
+            {
+                ge_new.Files = eg;
+                ge_new.Save();
+            }
         }).Start();
     }
 

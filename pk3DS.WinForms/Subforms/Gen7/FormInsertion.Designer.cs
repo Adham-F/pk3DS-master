@@ -98,7 +98,7 @@ partial class FormInsertion
         this.CHK_BatchList.Text = "Batch Mode (List)";
         this.CHK_BatchList.CheckedChanged += (s, e) => {
             this.RTB_BatchList.Visible = this.CHK_BatchList.Checked;
-            this.Height = this.CHK_BatchList.Checked ? 650 : 460;
+            this.ClientSize = new System.Drawing.Size(450, this.CHK_BatchList.Checked ? 420 : 215);
             if (this.CHK_BatchList.Checked) this.CHK_Batch.Checked = false;
         };
 
@@ -110,20 +110,19 @@ partial class FormInsertion
 
         // B_Insert
         this.B_Insert.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-        this.B_Insert.Location = new System.Drawing.Point(164, 380);
-        this.B_Insert.Size = new System.Drawing.Size(75, 23);
+        this.B_Insert.Location = new System.Drawing.Point(145, 175);
+        this.B_Insert.Size = new System.Drawing.Size(75, 25);
         this.B_Insert.Text = "Insert";
         this.B_Insert.Click += new System.EventHandler(this.B_Insert_Click);
 
         // B_Cancel
         this.B_Cancel.Anchor = System.Windows.Forms.AnchorStyles.Bottom;
-        this.B_Cancel.Location = new System.Drawing.Point(245, 380);
-        this.B_Cancel.Size = new System.Drawing.Size(75, 23);
+        this.B_Cancel.Location = new System.Drawing.Point(230, 175);
+        this.B_Cancel.Size = new System.Drawing.Size(75, 25);
         this.B_Cancel.Text = "Cancel";
         this.B_Cancel.Click += (s, e) => this.Close();
 
-        this.Height = 460;
-        this.ClientSize = new System.Drawing.Size(450, 220);
+        this.ClientSize = new System.Drawing.Size(450, 215);
         this.Controls.Add(this.CHK_BatchList);
         this.Controls.Add(this.RTB_BatchList);
         this.Controls.Add(this.L_TargetSpecies);

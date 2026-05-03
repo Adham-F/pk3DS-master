@@ -148,6 +148,17 @@ namespace pk3DS.WinForms
             this.btnExpItems.ForeColor = System.Drawing.Color.White;
             this.btnExpItems.BackColor = System.Drawing.Color.FromArgb(35, 35, 50);
             this.pnlExpander.Controls.Add(this.btnExpItems);
+            
+            this.btnCustomPatch = new System.Windows.Forms.Button();
+            this.btnCustomPatch.Text = "Apply Custom Patches";
+            this.btnCustomPatch.Dock = System.Windows.Forms.DockStyle.Top;
+            this.btnCustomPatch.Height = 40;
+            this.btnCustomPatch.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCustomPatch.FlatAppearance.BorderSize = 0;
+            this.btnCustomPatch.ForeColor = System.Drawing.Color.LightGreen;
+            this.btnCustomPatch.BackColor = System.Drawing.Color.FromArgb(30, 45, 30);
+            this.pnlExpander.Controls.Add(this.btnCustomPatch);
+            
             this.btnMasterDeploy.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnMasterDeploy.Click += new System.EventHandler(this.B_ExecuteUnified_Click);
 
@@ -243,5 +254,6 @@ namespace pk3DS.WinForms
         private System.Windows.Forms.Button btnExpAbils;
         private System.Windows.Forms.Button btnExpItems;
         private System.Windows.Forms.Button btnLinkEffect;
+        private System.Windows.Forms.Button btnCustomPatch;
     }
 }

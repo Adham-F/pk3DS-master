@@ -421,8 +421,16 @@ public static class WinFormsUtil
         }
     }
 
+    private static bool _filterAdded = false;
+
     private static void ApplyCyberSlateTheme(Control c, VisualTheme theme)
     {
+        if (!_filterAdded)
+        {
+            Application.AddMessageFilter(new ComboBoxArrowKeyFilter());
+            _filterAdded = true;
+        }
+
         bool dark = theme == VisualTheme.Dark;
         bool grey = theme == VisualTheme.Grey;
 
@@ -907,4 +915,76 @@ public class ComboItem
     public object Value { get; set; }
     
     public override string ToString() => Text;
+}
+
+public class ComboBoxArrowKeyFilter : IMessageFilter
+{
+    private const int WM_KEYDOWN = 0x0100;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr GetParent(IntPtr hWnd);
+
+    public bool PreFilterMessage(ref Message m)
+    {
+        if (m.Msg != WM_KEYDOWN)
+            return false;
+
+        Keys key = (Keys)m.WParam.ToInt32();
+        if (key != Keys.Up && key != Keys.Down)
+            return false;
+
+        // Try to find a ComboBox from the focused window handle.
+        // When autocomplete is active, the focused window is a native EDIT child
+        // that Control.FromHandle returns null for. Walk up via GetParent.
+        ComboBox cb = FindComboBox(m.HWnd);
+        if (cb != null)
+            return HandleComboBoxNavigation(cb, key);
+
+        return false;
+    }
+
+    private static ComboBox FindComboBox(IntPtr hWnd)
+    {
+        // First check if the handle itself is a managed ComboBox
+        Control c = Control.FromHandle(hWnd);
+        if (c is ComboBox cb)
+            return cb;
+        if (c != null && c.Parent is ComboBox parentCb)
+            return parentCb;
+
+        // Walk up the native window hierarchy to find the ComboBox
+        // (handles the case where hWnd is the internal EDIT control)
+        IntPtr parent = GetParent(hWnd);
+        if (parent != IntPtr.Zero)
+        {
+            Control parentCtrl = Control.FromHandle(parent);
+            if (parentCtrl is ComboBox pcb)
+                return pcb;
+        }
+
+        return null;
+    }
+
+    private bool HandleComboBoxNavigation(ComboBox cb, Keys key)
+    {
+        if (cb.DroppedDown) return false;
+
+        int newIndex = cb.SelectedIndex;
+        if (key == Keys.Up && newIndex > 0) newIndex--;
+        else if (key == Keys.Down && newIndex < cb.Items.Count - 1) newIndex++;
+
+        if (newIndex != cb.SelectedIndex)
+        {
+            cb.SelectedIndex = newIndex;
+            if (cb.DropDownStyle != ComboBoxStyle.DropDownList)
+            {
+                // Select all text so the next typed character replaces, 
+                // preventing the old autocomplete prefix from sticking
+                cb.SelectionStart = 0;
+                cb.SelectionLength = cb.Text.Length;
+            }
+            return true; // Suppress message — we handled navigation
+        }
+        return true; // Suppress even at boundaries to prevent autocomplete filter
+    }
 }

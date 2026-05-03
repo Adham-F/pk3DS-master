@@ -46,45 +46,61 @@ public partial class FormInsertion : Form
 
     private void B_Insert_Click(object sender, EventArgs e)
     {
-        List<int> speciesToInsert = new List<int>();
-        if (CHK_BatchList.Checked)
-        {
-            string[] names = RTB_BatchList.Lines;
-            foreach (string name in names)
-            {
-                if (string.IsNullOrWhiteSpace(name)) continue;
-                int idx = Array.FindIndex(speciesNames, s => s.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
-                if (idx > 0) speciesToInsert.Add(idx);
-            }
-        }
-        else if (CHK_Batch.Checked)
-        {
-            int start = CB_TargetSpecies.SelectedIndex;
-            int end = CB_TargetSpeciesEnd.SelectedIndex;
-            for (int i = start; i <= end; i++) speciesToInsert.Add(i);
-        }
-        else
-        {
-            speciesToInsert.Add(CB_TargetSpecies.SelectedIndex);
-        }
-
-        if (speciesToInsert.Count == 0) { WinFormsUtil.Error("No valid species found for insertion."); return; }
-
-        int count = (int)NUD_FormCount.Value;
-        int copyIndex = CB_CopyFrom.SelectedIndex;
-
-        string summary = speciesToInsert.Count > 1 ? $"{speciesToInsert.Count} species" : speciesNames[speciesToInsert[0]];
-        if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, $"Insert {count} forms for {summary}?", "Template: " + speciesNames[copyIndex]) != DialogResult.Yes)
-            return;
-
         try
         {
+            List<int> speciesToInsert = new List<int>();
+            if (CHK_BatchList.Checked)
+            {
+                string[] names = RTB_BatchList.Lines;
+                foreach (string name in names)
+                {
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+                    int idx = Array.FindIndex(speciesNames, s => s.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (idx > 0) speciesToInsert.Add(idx);
+                }
+            }
+            else if (CHK_Batch.Checked)
+            {
+                int start = CB_TargetSpecies.SelectedIndex;
+                int end = CB_TargetSpeciesEnd.SelectedIndex;
+                if (start > 0 && end >= start)
+                {
+                    for (int i = start; i <= end; i++) speciesToInsert.Add(i);
+                }
+            }
+            else
+            {
+                int idx = CB_TargetSpecies.SelectedIndex;
+                if (idx > 0) speciesToInsert.Add(idx);
+            }
+
+            if (speciesToInsert.Count == 0) { WinFormsUtil.Error("No valid species selected for insertion."); return; }
+            int count = (int)NUD_FormCount.Value;
+            bool isBatch = CHK_BatchList.Checked || CHK_Batch.Checked;
+            int copyIndex = isBatch ? -1 : CB_CopyFrom.SelectedIndex;
+
+            if (!isBatch && copyIndex < 0) { WinFormsUtil.Error("Please select a template species to copy from."); return; }
+
+            // Validate bounds - copyIndex is from entryNames (includes forms), not speciesNames
+            if (!isBatch && copyIndex >= personalFiles.Length)
+            { WinFormsUtil.Error($"Template index {copyIndex} exceeds personal data bounds ({personalFiles.Length})."); return; }
+
+            string speciesSummary = speciesToInsert.Count > 1
+                ? $"{speciesToInsert.Count} species"
+                : (speciesToInsert[0] < speciesNames.Length ? speciesNames[speciesToInsert[0]] : $"Entry #{speciesToInsert[0]}");
+            
+            string templateName = isBatch ? "Base Form of each Species" : (copyIndex < entryNames.Length ? entryNames[copyIndex] : $"Entry #{copyIndex}");
+
+            if (WinFormsUtil.Prompt(MessageBoxButtons.YesNo, $"Insert {count} forms for {speciesSummary}?", "Template: " + templateName) != DialogResult.Yes)
+                return;
+
             // 0. Backup critical files
             BackupCriticalFiles();
 
             foreach (int sID in speciesToInsert)
             {
-                InsertForms(sID, count, copyIndex);
+                int finalTemplate = isBatch ? sID : copyIndex;
+                InsertForms(sID, count, finalTemplate);
                 // Synchronize lists for next iteration
                 personalFilesList = ResultPersonal.ToList();
                 evolutionFilesList = ResultEvolution.ToList();
@@ -95,7 +111,7 @@ public partial class FormInsertion : Form
                 ExpandGameText(sID, count);
             }
 
-            WinFormsUtil.Alert("Insertion complete!", "Please RESTART pk3DS immediately. The internal tables have been shifted, and other editors need to reload to recognize the new indices.");
+            WinFormsUtil.Alert("Insertion complete!", $"Added forms for {speciesToInsert.Count} species.");
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -354,6 +370,14 @@ public partial class FormInsertion : Form
 
         garc.Files = newModelFiles.ToArray();
         File.WriteAllBytes(path, garc.Data);
+
+        // Heavy cleanup for 1GB+ Model GARCs
+        newModelFiles.Clear();
+        modelFiles = null;
+        tempBins.Clear();
+        garc = null;
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
     }
 
     private void BackupCriticalFiles()
@@ -401,4 +425,6 @@ public partial class FormInsertion : Form
     public byte[][] ResultEvolution;
     public byte[][] ResultLevelUp;
     public byte[][] ResultEggMoves;
+
+    public bool ShouldResort => CHK_Sort.Checked;
 }

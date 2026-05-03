@@ -16,6 +16,7 @@ namespace pk3DS.WinForms;
 
 public partial class MoveEditor7 : Form
 {
+    private bool loading = true;
     private byte[][] files;
     public byte[][] Files => files;
     private string[] types = Main.Config.GetText(TextName.Types);
@@ -126,6 +127,20 @@ public partial class MoveEditor7 : Form
         LoadFlagNames();
         RefreshFlagNames();
         LoadLogs();
+        loading = false;
+        if (CB_Move.SelectedIndex >= 0) ChangeEntry(null, null);
+
+        // Emergency Fix for Pound (Entry 1) flags being wiped by previous initialization bugs
+        if (files.Length > 1)
+        {
+            var pound = new Move7(files[1]);
+            if (pound.Flags == 0 && pound.Power > 0) // Only if it looks like Pound and has no flags
+            {
+                pound.Flags = MoveFlag7.MakesContact | MoveFlag7.Protect | MoveFlag7.Mirror;
+                files[1] = pound.Write();
+                if (CB_Move.SelectedIndex == 0) ChangeEntry(null, null); // Refresh UI if Pound is selected
+            }
+        }
     }
 
     private void LoadLogs()
@@ -475,6 +490,7 @@ public partial class MoveEditor7 : Form
 
     private void ChangeEntry(object sender, EventArgs e)
     {
+        if (loading) return;
         SetEntry();
         if (CB_Move.SelectedIndex < 0) return;
         
@@ -806,7 +822,9 @@ public partial class MoveEditor7 : Form
 
         byte[] mini = Mini.PackMini(files, "WD");
         var gm = Main.Config.GARCMoves;
-        gm.Files[0] = mini;
+        var f = gm.Files;
+        f[0] = mini;
+        gm.Files = f; // Trigger repack
         gm.Save();
 
         EnginePatcher7.SyncEngineLimits(files.Length - 1);
